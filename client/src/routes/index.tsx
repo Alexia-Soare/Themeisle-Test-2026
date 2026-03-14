@@ -120,14 +120,14 @@ function DashboardPage() {
           </Button>
 
           <div className="ml-auto flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">
+            <span className="text-sm text-foreground">
               Sort by:
             </span>
             <Select
               value={sort}
               onValueChange={(v) => setSort(v as SortOption)}
             >
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[180px] !border-border !bg-background hover:!bg-muted !text-foreground">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
