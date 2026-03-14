@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth-context";
 import { api, Market } from "@/lib/api";
@@ -7,6 +7,28 @@ import { MarketCard } from "@/components/market-card";
 import { useNavigate } from "@tanstack/react-router";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
+//ADD SORTING
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue,} from "@/components/ui/select";
+
+
+type SortOption = "newest" | "oldest" | "bet_size";
+
+function sortMarkets(markets: Market[], sort: SortOption): Market[] {
+  return [...markets].sort((a, b) => {
+    switch (sort) {
+      case "newest":
+        return b.id - a.id;
+      case "oldest":
+        return a.id - b.id;
+      case "bet_size":
+        return (b.totalMarketBets ?? 0) - (a.totalMarketBets ?? 0);
+      default:
+        return 0;
+    }
+  });
+}
+//----
+
 function DashboardPage() {
   const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
@@ -14,6 +36,14 @@ function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<"active" | "resolved">("active");
+  //---
+  const [sort, setSort] = useState<SortOption>("newest");
+
+  const sortedMarkets = useMemo(
+    () => sortMarkets(markets, sort),
+    [markets, sort],
+  );
+  //---
 
   const loadMarkets = async () => {
     try {
@@ -66,8 +96,9 @@ function DashboardPage() {
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="mb-6 flex gap-4">
+        {/* Filters & SORT*/}
+      
+         <div className="mb-6 flex flex-wrap items-center gap-4">
           <Button
             variant={status === "active" ? "default" : "outline"}
             onClick={() => setStatus("active")}
@@ -80,9 +111,34 @@ function DashboardPage() {
           >
             Resolved Markets
           </Button>
-          <Button variant="outline" onClick={loadMarkets} disabled={isLoading}>
+          <Button
+            variant="outline"
+            onClick={loadMarkets}
+            disabled={isLoading}
+          >
             {isLoading ? "Refreshing..." : "Refresh"}
           </Button>
+
+          <div className="ml-auto flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">
+              Sort by:
+            </span>
+            <Select
+              value={sort}
+              onValueChange={(v) => setSort(v as SortOption)}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">Newest First</SelectItem>
+                <SelectItem value="oldest">Oldest First</SelectItem>
+                <SelectItem value="bet_size">
+                  Total Bet Size
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* Error State */}
@@ -99,7 +155,7 @@ function DashboardPage() {
               <p className="text-muted-foreground">Loading markets...</p>
             </CardContent>
           </Card>
-        ) : markets.length === 0 ? (
+        ) : sortedMarkets.length === 0 ? (
           <Card>
             <CardContent className="flex items-center justify-center py-12">
               <div className="text-center">
@@ -111,7 +167,7 @@ function DashboardPage() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {markets.map((market) => (
+            {sortedMarkets.map((market) => (
               <MarketCard key={market.id} market={market} />
             ))}
           </div>
