@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import type { Market, MarketStatus } from "@/lib/api";
 import { api, marketStatuses } from "@/lib/api";
@@ -57,6 +57,14 @@ function DashboardPage() {
   const startIndex = totalMarkets === 0 ? 0 : (page - 1) * MARKETS_PER_PAGE;
   const endIndex = Math.min(startIndex + MARKETS_PER_PAGE, totalMarkets);
   const paginatedMarkets = sortedMarkets.slice(startIndex, endIndex);
+  const visibleMarketIds = paginatedMarkets.map((market) => market.id);
+  const visibleMarketKey = visibleMarketIds.join(",");
+
+  const handleMarketUpdate = useEffectEvent((updatedMarket: Market) => {
+    setMarkets((currentMarkets) =>
+      currentMarkets.map((market) => (market.id === updatedMarket.id ? updatedMarket : market)),
+    );
+  });
 
   const loadMarkets = async (nextStatus = status) => {
     try {
@@ -78,6 +86,20 @@ function DashboardPage() {
   useEffect(() => {
     setPage((currentPage) => Math.min(currentPage, totalPages));
   }, [totalPages]);
+
+  useEffect(() => {
+    if (visibleMarketIds.length === 0) {
+      return;
+    }
+
+    const unsubscribeHandlers = visibleMarketIds.map((marketId) =>
+      api.subscribeToMarketUpdates(marketId, handleMarketUpdate),
+    );
+
+    return () => {
+      unsubscribeHandlers.forEach((unsubscribe) => unsubscribe());
+    };
+  }, [handleMarketUpdate, visibleMarketKey]);
 
   const handleStatusChange = (nextStatus: MarketStatus) => {
     setStatus(nextStatus);

@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
-import { useParams, useNavigate, createFileRoute } from "@tanstack/react-router";
+import { useEffect, useEffectEvent, useState } from "react";
+import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
+import type { Market } from "@/lib/api";
+import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import { api, Market } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +22,11 @@ function MarketDetailPage() {
 
   const marketId = parseInt(id, 10);
 
+  const handleMarketUpdate = useEffectEvent((updatedMarket: Market) => {
+    setMarket(updatedMarket);
+    setSelectedOutcomeId((currentOutcomeId) => currentOutcomeId ?? updatedMarket.outcomes[0]?.id);
+  });
+
   useEffect(() => {
     const loadMarket = async () => {
       try {
@@ -39,6 +45,14 @@ function MarketDetailPage() {
 
     loadMarket();
   }, [marketId]);
+
+  useEffect(() => {
+    if (!isAuthenticated || Number.isNaN(marketId)) {
+      return;
+    }
+
+    return api.subscribeToMarketUpdates(marketId, handleMarketUpdate);
+  }, [handleMarketUpdate, isAuthenticated, marketId]);
 
   const handlePlaceBet = async () => {
     if (!selectedOutcomeId || !betAmount) {
@@ -96,7 +110,7 @@ function MarketDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8">
+    <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 py-8">
       <div className="max-w-3xl mx-auto px-4 space-y-6">
         {/* Header */}
         <Button variant="outline" onClick={() => navigate({ to: "/" })}>

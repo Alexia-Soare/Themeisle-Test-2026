@@ -103,6 +103,25 @@ class ApiClient {
     return this.request(`/api/markets/${id}`);
   }
 
+  subscribeToMarketUpdates(
+    marketId: number,
+    onMarketUpdate: (market: Market) => void,
+  ): () => void {
+    const eventSource = new EventSource(`${this.baseUrl}/api/markets/${marketId}/stream`);
+
+    eventSource.onmessage = (event) => {
+      try {
+        onMarketUpdate(JSON.parse(event.data) as Market);
+      } catch (error) {
+        console.error("Failed to parse market update", error);
+      }
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }
+
   async createMarket(title: string, description: string, outcomes: Array<string>): Promise<Market> {
     return this.request("/api/markets", {
       method: "POST",
