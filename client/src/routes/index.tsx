@@ -1,11 +1,18 @@
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { ChevronDownIcon } from "lucide-react";
 import type { Market, MarketStatus } from "@/lib/api";
 import { api, marketStatuses } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { MarketCard } from "@/components/market-card";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 
@@ -111,6 +118,8 @@ function DashboardPage() {
     setPage(1);
   };
 
+  const profileInitial = user?.username.charAt(0).toUpperCase() ?? "U";
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-blue-50 to-indigo-100">
@@ -138,10 +147,28 @@ function DashboardPage() {
             <p className="text-gray-600 mt-2">Welcome back, {user?.username}!</p>
           </div>
           <div className="flex items-center gap-4">
-            <Button variant="outline" onClick={() => navigate({ to: "/auth/logout" })}>
-              Logout
-            </Button>
             <Button onClick={() => navigate({ to: "/markets/new" })}>Create Market</Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="gap-2 bg-transparent px-1 shadow-none transition-none hover:bg-transparent hover:text-current focus-visible:border-transparent focus-visible:ring-0 data-[state=open]:bg-transparent data-[state=open]:text-current"
+                >
+                  <span className="flex size-8 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
+                    {profileInitial}
+                  </span>
+                  <ChevronDownIcon className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-40">
+                <DropdownMenuItem onClick={() => navigate({ to: "/profile" })}>
+                  View Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate({ to: "/auth/logout" })}>
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
