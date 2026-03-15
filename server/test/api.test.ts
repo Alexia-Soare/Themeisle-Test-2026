@@ -4,6 +4,7 @@ import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import { app } from "../index";
 import db from "../src/db";
 import { betsTable, marketOutcomesTable, marketsTable } from "../src/db/schema";
+import type { ActiveBetSummary } from "../../client/src/lib/api";
 
 const BASE = "http://localhost";
 
@@ -301,6 +302,27 @@ describe("Bets", () => {
     expect(data.marketId).toBe(marketId);
     expect(data.outcomeId).toBe(outcomeId);
     expect(data.amount).toBe(50);
+  });
+
+  it("GET /api/auth/me/active-bets — returns the user's active bets with current odds", async () => {
+    const res = await app.handle(
+      new Request(`${BASE}/api/auth/me/active-bets`, {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as Array<ActiveBetSummary>;
+    expect(Array.isArray(data)).toBe(true);
+
+    const activeBet = data.find((bet) => bet.marketId === marketId && bet.outcomeId === outcomeId);
+    expect(activeBet).toBeDefined();
+    expect(activeBet?.marketTitle).toBe("Will it rain tomorrow?");
+    expect(activeBet?.outcomeTitle).toBe("Yes");
+    expect(activeBet?.amount).toBe(50);
+    expect(activeBet?.currentOdds).toBe(100);
   });
 
   it("POST /api/markets/:id/bets — validates amount", async () => {

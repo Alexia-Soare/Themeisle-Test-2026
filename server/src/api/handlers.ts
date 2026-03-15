@@ -2,7 +2,7 @@ import { eq, and } from "drizzle-orm";
 import db from "../db";
 import { usersTable, marketsTable, marketOutcomesTable, betsTable } from "../db/schema";
 import { hashPassword, verifyPassword, type AuthTokenPayload } from "../lib/auth";
-import { createMarketStreamResponse, broadcastMarketUpdate } from "../lib/market-events";
+import { broadcastMarketUpdate, createMarketStreamResponse } from "../lib/market-events";
 import { getEnrichedMarket, listEnrichedMarkets, type MarketStatus } from "../lib/market-data";
 import {
   validateRegistration,
@@ -115,6 +115,46 @@ export async function handleGetResolvedBets({
       outcomeTitle: bet.outcome.title,
       result: bet.outcomeId === bet.market.resolvedOutcomeId ? "won" : "lost",
     }));
+}
+
+export async function handleGetActiveBets({
+  user,
+}: {
+  user: typeof usersTable.$inferSelect;
+}) {
+  const bets = await db.query.betsTable.findMany({
+    where: eq(betsTable.userId, user.id),
+    with: {
+      market: true,
+      outcome: true,
+    },
+  });
+
+  const activeBets = bets.filter((bet) => bet.market.status === "active");
+  const enrichedMarkets = await Promise.all(
+    [...new Set(activeBets.map((bet) => bet.marketId))].map(async (marketId) => [
+      marketId,
+      await getEnrichedMarket(marketId),
+    ] as const),
+  );
+  const enrichedMarketMap = new Map(enrichedMarkets);
+
+  return activeBets
+    .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
+    .map((bet) => {
+      const market = enrichedMarketMap.get(bet.marketId);
+      const selectedOutcome = market?.outcomes.find((outcome) => outcome.id === bet.outcomeId);
+
+      return {
+        id: bet.id,
+        marketId: bet.marketId,
+        marketTitle: bet.market.title,
+        outcomeId: bet.outcomeId,
+        outcomeTitle: bet.outcome.title,
+        amount: bet.amount,
+        currentOdds: selectedOutcome?.odds ?? 0,
+      };
+    });
 }
 
 export async function handleCreateMarket({

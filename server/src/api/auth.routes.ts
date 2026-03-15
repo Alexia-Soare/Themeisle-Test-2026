@@ -1,6 +1,6 @@
 import { Elysia, t } from "elysia";
 import { authMiddleware } from "../middleware/auth.middleware";
-import { handleGetResolvedBets, handleRegister, handleLogin } from "./handlers";
+import { handleGetActiveBets, handleGetResolvedBets, handleRegister, handleLogin } from "./handlers";
 
 export const authRoutes = new Elysia({ prefix: "/api/auth" })
   .use(authMiddleware)
@@ -26,5 +26,8 @@ export const authRoutes = new Elysia({ prefix: "/api/auth" })
         }
       },
     },
-    (app) => app.get("/me/resolved-bets", handleGetResolvedBets),
+    (app) =>
+      app
+        .get("/me/resolved-bets", handleGetResolvedBets)
+        .get("/me/active-bets", handleGetActiveBets),
   );
