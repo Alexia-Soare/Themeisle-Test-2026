@@ -65,9 +65,6 @@ function MarketDetailPage() {
       setError(null);
       await api.placeBet(marketId, selectedOutcomeId, parseFloat(betAmount));
       setBetAmount("");
-      // Reload market to show updated odds
-      const updated = await api.getMarket(marketId);
-      setMarket(updated);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to place bet");
     } finally {

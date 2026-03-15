@@ -46,6 +46,16 @@ export interface ResolvedBetSummary {
   result: "won" | "lost";
 }
 
+export interface ActiveBetSummary {
+  id: number;
+  marketId: number;
+  marketTitle: string;
+  outcomeId: number;
+  outcomeTitle: string;
+  amount: number;
+  currentOdds: number;
+}
+
 // API Client
 class ApiClient {
   private baseUrl: string;
@@ -73,7 +83,14 @@ class ApiClient {
       headers,
     });
 
-    const data = await response.json();
+    const contentType = response.headers.get("content-type") || "";
+    const rawBody = await response.text();
+    const data =
+      rawBody.length > 0 && contentType.includes("application/json")
+        ? JSON.parse(rawBody)
+        : rawBody.length > 0
+          ? { error: rawBody }
+          : {};
 
     if (!response.ok) {
       // If there are validation errors, throw them
@@ -104,6 +121,10 @@ class ApiClient {
 
   async getResolvedBets(): Promise<Array<ResolvedBetSummary>> {
     return this.request("/api/auth/me/resolved-bets");
+  }
+
+  async getActiveBets(): Promise<Array<ActiveBetSummary>> {
+    return this.request("/api/auth/me/active-bets");
   }
 
   // Markets endpoints
