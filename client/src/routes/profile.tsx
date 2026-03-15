@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
+const ITEMS_PER_PAGE = 20;
+
 function ProfilePage() {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
@@ -16,6 +18,24 @@ function ProfilePage() {
   const [resolvedBets, setResolvedBets] = useState<Array<ResolvedBetSummary>>([]);
   const [isLoadingResolvedBets, setIsLoadingResolvedBets] = useState(true);
   const [resolvedBetsError, setResolvedBetsError] = useState<string | null>(null);
+  const [activePage, setActivePage] = useState(1);
+  const [resolvedPage, setResolvedPage] = useState(1);
+
+  const activeTotalPages = Math.max(1, Math.ceil(activeBets.length / ITEMS_PER_PAGE));
+  const activeStartIndex = activeBets.length === 0 ? 0 : (activePage - 1) * ITEMS_PER_PAGE;
+  const activeEndIndex = Math.min(activeStartIndex + ITEMS_PER_PAGE, activeBets.length);
+  const paginatedActiveBets = useMemo(
+    () => activeBets.slice(activeStartIndex, activeEndIndex),
+    [activeBets, activeEndIndex, activeStartIndex],
+  );
+
+  const resolvedTotalPages = Math.max(1, Math.ceil(resolvedBets.length / ITEMS_PER_PAGE));
+  const resolvedStartIndex = resolvedBets.length === 0 ? 0 : (resolvedPage - 1) * ITEMS_PER_PAGE;
+  const resolvedEndIndex = Math.min(resolvedStartIndex + ITEMS_PER_PAGE, resolvedBets.length);
+  const paginatedResolvedBets = useMemo(
+    () => resolvedBets.slice(resolvedStartIndex, resolvedEndIndex),
+    [resolvedBets, resolvedEndIndex, resolvedStartIndex],
+  );
 
   const loadProfileBets = useCallback(async (options?: { background?: boolean }) => {
     const isBackground = options?.background === true;
@@ -106,11 +126,21 @@ function ProfilePage() {
       setResolvedBetsError(null);
       setIsLoadingActiveBets(false);
       setIsLoadingResolvedBets(false);
+      setActivePage(1);
+      setResolvedPage(1);
       return;
     }
 
     void loadProfileBets();
   }, [isAuthenticated, loadProfileBets]);
+
+  useEffect(() => {
+    setActivePage((currentPage) => Math.min(currentPage, activeTotalPages));
+  }, [activeTotalPages]);
+
+  useEffect(() => {
+    setResolvedPage((currentPage) => Math.min(currentPage, resolvedTotalPages));
+  }, [resolvedTotalPages]);
 
   useEffect(() => {
     if (!isAuthenticated || activeMarketIds.length === 0) {
@@ -168,8 +198,34 @@ function ProfilePage() {
             ) : activeBets.length === 0 ? (
               <p className="text-sm text-muted-foreground">You do not have any active bets yet.</p>
             ) : (
-              <div className="space-y-3">
-                {activeBets.map((bet) => (
+              <div className="space-y-4">
+                <div className="flex flex-col gap-3 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
+                  <span>
+                    Showing {activeStartIndex + 1}-{activeEndIndex} of {activeBets.length} active bets
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setActivePage((currentPage) => Math.max(currentPage - 1, 1))}
+                      disabled={activePage === 1}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setActivePage((currentPage) => Math.min(currentPage + 1, activeTotalPages))
+                      }
+                      disabled={activePage === activeTotalPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+
+                {paginatedActiveBets.map((bet) => (
                   <div
                     key={bet.id}
                     className="flex flex-col gap-3 rounded-none border border-border bg-background p-4 md:flex-row md:items-center md:justify-between"
@@ -209,8 +265,34 @@ function ProfilePage() {
             ) : resolvedBets.length === 0 ? (
               <p className="text-sm text-muted-foreground">You do not have any resolved bets yet.</p>
             ) : (
-              <div className="space-y-3">
-                {resolvedBets.map((bet) => (
+              <div className="space-y-4">
+                <div className="flex flex-col gap-3 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
+                  <span>
+                    Showing {resolvedStartIndex + 1}-{resolvedEndIndex} of {resolvedBets.length} resolved bets
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setResolvedPage((currentPage) => Math.max(currentPage - 1, 1))}
+                      disabled={resolvedPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setResolvedPage((currentPage) => Math.min(currentPage + 1, resolvedTotalPages))
+                      }
+                      disabled={resolvedPage === resolvedTotalPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+
+                {paginatedResolvedBets.map((bet) => (
                   <div
                     key={bet.id}
                     className="flex flex-col gap-3 rounded-none border border-border bg-background p-4 md:flex-row md:items-center md:justify-between"
