@@ -92,6 +92,31 @@ export async function handleLogin({
   };
 }
 
+export async function handleGetResolvedBets({
+  user,
+}: {
+  user: typeof usersTable.$inferSelect;
+}) {
+  const bets = await db.query.betsTable.findMany({
+    where: eq(betsTable.userId, user.id),
+    with: {
+      market: true,
+      outcome: true,
+    },
+  });
+
+  return bets
+    .filter((bet) => bet.market.status === "resolved" && bet.market.resolvedOutcomeId !== null)
+    .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
+    .map((bet) => ({
+      id: bet.id,
+      marketId: bet.marketId,
+      marketTitle: bet.market.title,
+      outcomeTitle: bet.outcome.title,
+      result: bet.outcomeId === bet.market.resolvedOutcomeId ? "won" : "lost",
+    }));
+}
+
 export async function handleCreateMarket({
   body,
   set,

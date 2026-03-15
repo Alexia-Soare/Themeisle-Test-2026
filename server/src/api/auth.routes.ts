@@ -1,7 +1,9 @@
 import { Elysia, t } from "elysia";
-import { handleRegister, handleLogin } from "./handlers";
+import { authMiddleware } from "../middleware/auth.middleware";
+import { handleGetResolvedBets, handleRegister, handleLogin } from "./handlers";
 
 export const authRoutes = new Elysia({ prefix: "/api/auth" })
+  .use(authMiddleware)
   .post("/register", handleRegister, {
     body: t.Object({
       username: t.String(),
@@ -14,4 +16,15 @@ export const authRoutes = new Elysia({ prefix: "/api/auth" })
       email: t.String(),
       password: t.String(),
     }),
-  });
+  })
+  .guard(
+    {
+      beforeHandle({ user, set }) {
+        if (!user) {
+          set.status = 401;
+          return { error: "Unauthorized" };
+        }
+      },
+    },
+    (app) => app.get("/me/resolved-bets", handleGetResolvedBets),
+  );

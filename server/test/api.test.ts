@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeAll } from "bun:test";
+import { eq } from "drizzle-orm";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import { app } from "../index";
 import db from "../src/db";
-import { marketOutcomesTable, marketsTable } from "../src/db/schema";
+import { betsTable, marketOutcomesTable, marketsTable } from "../src/db/schema";
 
 const BASE = "http://localhost";
 
@@ -167,10 +168,25 @@ describe("Markets", () => {
       })
       .returning();
 
-    await db.insert(marketOutcomesTable).values([
+    const resolvedOutcomes = await db
+      .insert(marketOutcomesTable)
+      .values([
       { marketId: resolvedMarket[0].id, title: "Yes", position: 0 },
       { marketId: resolvedMarket[0].id, title: "No", position: 1 },
-    ]);
+      ])
+      .returning();
+
+    await db
+      .update(marketsTable)
+      .set({ resolvedOutcomeId: resolvedOutcomes[0].id })
+      .where(eq(marketsTable.id, resolvedMarket[0].id));
+
+    await db.insert(betsTable).values({
+      userId,
+      marketId: resolvedMarket[0].id,
+      outcomeId: resolvedOutcomes[1].id,
+      amount: 25,
+    });
 
     resolvedMarketId = resolvedMarket[0].id;
 
@@ -195,6 +211,24 @@ describe("Markets", () => {
     expect(data.every((market: { status: string }) => market.status === "resolved")).toBe(true);
     expect(data.some((market: { id: number }) => market.id === resolvedMarketId)).toBe(true);
     expect(data.some((market: { id: number }) => market.id === marketId)).toBe(false);
+  });
+
+  it("GET /api/auth/me/resolved-bets — returns the user's resolved bets", async () => {
+    const res = await app.handle(
+      new Request(`${BASE}/api/auth/me/resolved-bets`, {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(Array.isArray(data)).toBe(true);
+    expect(data.length).toBeGreaterThan(0);
+    expect(data[0].marketTitle).toBe("Did the launch succeed?");
+    expect(data[0].outcomeTitle).toBe("No");
+    expect(data[0].result).toBe("lost");
   });
 
   it("GET /api/markets — rejects invalid status filters", async () => {
