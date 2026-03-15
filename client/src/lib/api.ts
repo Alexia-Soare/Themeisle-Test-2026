@@ -38,6 +38,14 @@ export interface Bet {
   createdAt: string;
 }
 
+export interface ResolvedBetSummary {
+  id: number;
+  marketId: number;
+  marketTitle: string;
+  outcomeTitle: string;
+  result: "won" | "lost";
+}
+
 // API Client
 class ApiClient {
   private baseUrl: string;
@@ -92,6 +100,10 @@ class ApiClient {
       method: "POST",
       body: JSON.stringify({ email, password }),
     });
+  }
+
+  async getResolvedBets(): Promise<Array<ResolvedBetSummary>> {
+    return this.request("/api/auth/me/resolved-bets");
   }
 
   // Markets endpoints
