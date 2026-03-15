@@ -138,7 +138,7 @@ export async function handleCreateMarket({
 }
 
 export async function handleListMarkets({ query }: { query: { status?: string } }) {
-  const statusFilter = query.status || "active";
+  const statusFilter = query.status ?? "active";
 
   const markets = await db.query.marketsTable.findMany({
     where: eq(marketsTable.status, statusFilter),

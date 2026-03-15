@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll } from "bun:test";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import { app } from "../index";
 import db from "../src/db";
+import { marketOutcomesTable, marketsTable } from "../src/db/schema";
 
 const BASE = "http://localhost";
 
@@ -10,6 +11,7 @@ let authToken: string;
 let userId: number;
 let marketId: number;
 let outcomeId: number;
+let resolvedMarketId: number;
 
 beforeAll(async () => {
   // Run migrations to create tables on the in-memory DB
@@ -155,15 +157,50 @@ describe("Markets", () => {
   });
 
   it("GET /api/markets — lists markets", async () => {
+    const resolvedMarket = await db
+      .insert(marketsTable)
+      .values({
+        title: "Did the launch succeed?",
+        description: "Mission outcome",
+        status: "resolved",
+        createdBy: userId,
+      })
+      .returning();
+
+    await db.insert(marketOutcomesTable).values([
+      { marketId: resolvedMarket[0].id, title: "Yes", position: 0 },
+      { marketId: resolvedMarket[0].id, title: "No", position: 1 },
+    ]);
+
+    resolvedMarketId = resolvedMarket[0].id;
+
     const res = await app.handle(new Request(`${BASE}/api/markets`));
 
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(Array.isArray(data)).toBe(true);
     expect(data.length).toBeGreaterThan(0);
-    expect(data[0].id).toBeDefined();
-    expect(data[0].title).toBeDefined();
-    expect(data[0].outcomes).toBeDefined();
+    expect(data.every((market: { status: string }) => market.status === "active")).toBe(true);
+    expect(data.some((market: { id: number }) => market.id === marketId)).toBe(true);
+    expect(data.some((market: { id: number }) => market.id === resolvedMarketId)).toBe(false);
+  });
+
+  it("GET /api/markets?status=resolved — lists resolved markets", async () => {
+    const res = await app.handle(new Request(`${BASE}/api/markets?status=resolved`));
+
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(Array.isArray(data)).toBe(true);
+    expect(data.length).toBeGreaterThan(0);
+    expect(data.every((market: { status: string }) => market.status === "resolved")).toBe(true);
+    expect(data.some((market: { id: number }) => market.id === resolvedMarketId)).toBe(true);
+    expect(data.some((market: { id: number }) => market.id === marketId)).toBe(false);
+  });
+
+  it("GET /api/markets — rejects invalid status filters", async () => {
+    const res = await app.handle(new Request(`${BASE}/api/markets?status=closed`));
+
+    expect(res.status).toBe(400);
   });
 
   it("GET /api/markets/:id — returns market detail", async () => {

@@ -6,7 +6,7 @@ export const marketRoutes = new Elysia({ prefix: "/api/markets" })
   .use(authMiddleware)
   .get("/", handleListMarkets, {
     query: t.Object({
-      status: t.Optional(t.String()),
+      status: t.Optional(t.Union([t.Literal("active"), t.Literal("resolved")])),
     }),
   })
   .get("/:id", handleGetMarket, {

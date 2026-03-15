@@ -1,19 +1,27 @@
 import { useEffect, useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import type { Market, MarketStatus } from "@/lib/api";
+import { api, marketStatuses } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import { api, Market } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { MarketCard } from "@/components/market-card";
-import { useNavigate } from "@tanstack/react-router";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-
-//ADD SORTING
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue,} from "@/components/ui/select";
+import { Card, CardContent } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 
 type SortOption = "newest" | "oldest" | "bet_size";
 
-function sortMarkets(markets: Market[], sort: SortOption): Market[] {
+const marketStatusLabels: Record<MarketStatus, string> = {
+  active: "Active Markets",
+  resolved: "Resolved Markets",
+};
+
+const emptyStateMessages: Record<MarketStatus, string> = {
+  active: "No active markets found. Create one to get started!",
+  resolved: "No resolved markets found.",
+};
+
+function sortMarkets(markets: Array<Market>, sort: SortOption): Array<Market> {
   return [...markets].sort((a, b) => {
     switch (sort) {
       case "newest":
@@ -21,35 +29,32 @@ function sortMarkets(markets: Market[], sort: SortOption): Market[] {
       case "oldest":
         return a.id - b.id;
       case "bet_size":
-        return (b.totalMarketBets ?? 0) - (a.totalMarketBets ?? 0);
+        return b.totalMarketBets - a.totalMarketBets;
       default:
         return 0;
     }
   });
 }
-//----
 
 function DashboardPage() {
   const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
-  const [markets, setMarkets] = useState<Market[]>([]);
+  const [markets, setMarkets] = useState<Array<Market>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<"active" | "resolved">("active");
-  //---
+  const [status, setStatus] = useState<MarketStatus>("active");
   const [sort, setSort] = useState<SortOption>("newest");
 
   const sortedMarkets = useMemo(
     () => sortMarkets(markets, sort),
     [markets, sort],
   );
-  //---
 
-  const loadMarkets = async () => {
+  const loadMarkets = async (nextStatus = status) => {
     try {
       setIsLoading(true);
       setError(null);
-      const data = await api.listMarkets(status);
+      const data = await api.listMarkets(nextStatus);
       setMarkets(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load markets");
@@ -64,7 +69,7 @@ function DashboardPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-blue-50 to-indigo-100">
         <div className="text-center">
           <h1 className="text-4xl font-bold mb-4 text-gray-900">Prediction Markets</h1>
           <p className="text-gray-600 mb-8 text-lg">Create and participate in prediction markets</p>
@@ -80,7 +85,7 @@ function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100">
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
@@ -96,46 +101,30 @@ function DashboardPage() {
           </div>
         </div>
 
-        {/* Filters & SORT*/}
-      
-         <div className="mb-6 flex flex-wrap items-center gap-4">
-          <Button
-            variant={status === "active" ? "default" : "outline"}
-            onClick={() => setStatus("active")}
-          >
-            Active Markets
-          </Button>
-          <Button
-            variant={status === "resolved" ? "default" : "outline"}
-            onClick={() => setStatus("resolved")}
-          >
-            Resolved Markets
-          </Button>
-          <Button
-            variant="outline"
-            onClick={loadMarkets}
-            disabled={isLoading}
-          >
+        <div className="mb-6 flex flex-wrap items-center gap-4">
+          {marketStatuses.map((marketStatus) => (
+            <Button
+              key={marketStatus}
+              variant={status === marketStatus ? "default" : "outline"}
+              onClick={() => setStatus(marketStatus)}
+            >
+              {marketStatusLabels[marketStatus]}
+            </Button>
+          ))}
+          <Button variant="outline" onClick={() => loadMarkets()} disabled={isLoading}>
             {isLoading ? "Refreshing..." : "Refresh"}
           </Button>
 
           <div className="ml-auto flex items-center gap-2">
-            <span className="text-sm text-foreground">
-              Sort by:
-            </span>
-            <Select
-              value={sort}
-              onValueChange={(v) => setSort(v as SortOption)}
-            >
-              <SelectTrigger className="w-[180px] !border-border !bg-background hover:!bg-muted !text-foreground">
+            <span className="text-sm text-foreground">Sort by:</span>
+            <Select value={sort} onValueChange={(value) => setSort(value as SortOption)}>
+              <SelectTrigger className="w-45 border-border! bg-background! text-foreground! hover:bg-muted!">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="newest">Newest First</SelectItem>
                 <SelectItem value="oldest">Oldest First</SelectItem>
-                <SelectItem value="bet_size">
-                  Total Bet Size
-                </SelectItem>
+                <SelectItem value="bet_size">Total Bet Size</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -159,9 +148,7 @@ function DashboardPage() {
           <Card>
             <CardContent className="flex items-center justify-center py-12">
               <div className="text-center">
-                <p className="text-muted-foreground text-lg">
-                  No {status} markets found. {status === "active" && "Create one to get started!"}
-                </p>
+                <p className="text-muted-foreground text-lg">{emptyStateMessages[status]}</p>
               </div>
             </CardContent>
           </Card>
