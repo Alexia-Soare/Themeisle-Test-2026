@@ -11,6 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 type SortOption = "newest" | "oldest" | "bet_size";
 
+const MARKETS_PER_PAGE = 20;
+
 const marketStatusLabels: Record<MarketStatus, string> = {
   active: "Active Markets",
   resolved: "Resolved Markets",
@@ -44,11 +46,17 @@ function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<MarketStatus>("active");
   const [sort, setSort] = useState<SortOption>("newest");
+  const [page, setPage] = useState(1);
 
   const sortedMarkets = useMemo(
     () => sortMarkets(markets, sort),
     [markets, sort],
   );
+  const totalMarkets = sortedMarkets.length;
+  const totalPages = Math.max(1, Math.ceil(totalMarkets / MARKETS_PER_PAGE));
+  const startIndex = totalMarkets === 0 ? 0 : (page - 1) * MARKETS_PER_PAGE;
+  const endIndex = Math.min(startIndex + MARKETS_PER_PAGE, totalMarkets);
+  const paginatedMarkets = sortedMarkets.slice(startIndex, endIndex);
 
   const loadMarkets = async (nextStatus = status) => {
     try {
@@ -66,6 +74,20 @@ function DashboardPage() {
   useEffect(() => {
     loadMarkets();
   }, [status]);
+
+  useEffect(() => {
+    setPage((currentPage) => Math.min(currentPage, totalPages));
+  }, [totalPages]);
+
+  const handleStatusChange = (nextStatus: MarketStatus) => {
+    setStatus(nextStatus);
+    setPage(1);
+  };
+
+  const handleSortChange = (value: string) => {
+    setSort(value as SortOption);
+    setPage(1);
+  };
 
   if (!isAuthenticated) {
     return (
@@ -106,7 +128,7 @@ function DashboardPage() {
             <Button
               key={marketStatus}
               variant={status === marketStatus ? "default" : "outline"}
-              onClick={() => setStatus(marketStatus)}
+              onClick={() => handleStatusChange(marketStatus)}
             >
               {marketStatusLabels[marketStatus]}
             </Button>
@@ -116,8 +138,11 @@ function DashboardPage() {
           </Button>
 
           <div className="ml-auto flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">
+              Showing {totalMarkets === 0 ? 0 : startIndex + 1}-{endIndex} of {totalMarkets} markets
+            </span>
             <span className="text-sm text-foreground">Sort by:</span>
-            <Select value={sort} onValueChange={(value) => setSort(value as SortOption)}>
+            <Select value={sort} onValueChange={handleSortChange}>
               <SelectTrigger className="w-45 border-border! bg-background! text-foreground! hover:bg-muted!">
                 <SelectValue />
               </SelectTrigger>
@@ -153,10 +178,31 @@ function DashboardPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {sortedMarkets.map((market) => (
-              <MarketCard key={market.id} market={market} />
-            ))}
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {paginatedMarkets.map((market) => (
+                <MarketCard key={market.id} market={market} />
+              ))}
+            </div>
+
+            <div className="flex items-center justify-end gap-4">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setPage((currentPage) => Math.max(currentPage - 1, 1))}
+                  disabled={page === 1}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setPage((currentPage) => Math.min(currentPage + 1, totalPages))}
+                  disabled={page === totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
           </div>
         )}
       </div>
