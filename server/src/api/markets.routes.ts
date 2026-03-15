@@ -1,12 +1,23 @@
 import { Elysia, t } from "elysia";
 import { authMiddleware } from "../middleware/auth.middleware";
-import { handleCreateMarket, handleListMarkets, handleGetMarket, handlePlaceBet } from "./handlers";
+import {
+  handleCreateMarket,
+  handleListMarkets,
+  handleGetMarket,
+  handleMarketStream,
+  handlePlaceBet,
+} from "./handlers";
 
 export const marketRoutes = new Elysia({ prefix: "/api/markets" })
   .use(authMiddleware)
   .get("/", handleListMarkets, {
     query: t.Object({
       status: t.Optional(t.Union([t.Literal("active"), t.Literal("resolved")])),
+    }),
+  })
+  .get("/:id/stream", handleMarketStream, {
+    params: t.Object({
+      id: t.Numeric(),
     }),
   })
   .get("/:id", handleGetMarket, {

@@ -2,6 +2,8 @@ import { eq, and } from "drizzle-orm";
 import db from "../db";
 import { usersTable, marketsTable, marketOutcomesTable, betsTable } from "../db/schema";
 import { hashPassword, verifyPassword, type AuthTokenPayload } from "../lib/auth";
+import { createMarketStreamResponse, broadcastMarketUpdate } from "../lib/market-events";
+import { getEnrichedMarket, listEnrichedMarkets, type MarketStatus } from "../lib/market-data";
 import {
   validateRegistration,
   validateLogin,
@@ -137,61 +139,9 @@ export async function handleCreateMarket({
   };
 }
 
-export async function handleListMarkets({ query }: { query: { status?: string } }) {
+export async function handleListMarkets({ query }: { query: { status?: MarketStatus } }) {
   const statusFilter = query.status ?? "active";
-
-  const markets = await db.query.marketsTable.findMany({
-    where: eq(marketsTable.status, statusFilter),
-    with: {
-      creator: {
-        columns: { username: true },
-      },
-      outcomes: {
-        orderBy: (outcomes, { asc }) => asc(outcomes.position),
-      },
-    },
-  });
-
-  const enrichedMarkets = await Promise.all(
-    markets.map(async (market) => {
-      const betsPerOutcome = await Promise.all(
-        market.outcomes.map(async (outcome) => {
-          const totalBets = await db
-            .select()
-            .from(betsTable)
-            .where(eq(betsTable.outcomeId, outcome.id));
-
-          const totalAmount = totalBets.reduce((sum, bet) => sum + bet.amount, 0);
-          return { outcomeId: outcome.id, totalBets: totalAmount };
-        }),
-      );
-
-      const totalMarketBets = betsPerOutcome.reduce((sum, b) => sum + b.totalBets, 0);
-
-      return {
-        id: market.id,
-        title: market.title,
-        status: market.status,
-        creator: market.creator?.username,
-        outcomes: market.outcomes.map((outcome) => {
-          const outcomeBets =
-            betsPerOutcome.find((b) => b.outcomeId === outcome.id)?.totalBets || 0;
-          const odds =
-            totalMarketBets > 0 ? Number(((outcomeBets / totalMarketBets) * 100).toFixed(2)) : 0;
-
-          return {
-            id: outcome.id,
-            title: outcome.title,
-            odds,
-            totalBets: outcomeBets,
-          };
-        }),
-        totalMarketBets,
-      };
-    }),
-  );
-
-  return enrichedMarkets;
+  return listEnrichedMarkets(statusFilter);
 }
 
 export async function handleGetMarket({
@@ -201,57 +151,37 @@ export async function handleGetMarket({
   params: { id: number };
   set: { status: number };
 }) {
-  const market = await db.query.marketsTable.findFirst({
-    where: eq(marketsTable.id, params.id),
-    with: {
-      creator: {
-        columns: { username: true },
-      },
-      outcomes: {
-        orderBy: (outcomes, { asc }) => asc(outcomes.position),
-      },
-    },
-  });
+  const market = await getEnrichedMarket(params.id);
 
   if (!market) {
     set.status = 404;
     return { error: "Market not found" };
   }
 
-  const betsPerOutcome = await Promise.all(
-    market.outcomes.map(async (outcome) => {
-      const totalBets = await db
-        .select()
-        .from(betsTable)
-        .where(eq(betsTable.outcomeId, outcome.id));
+  return market;
+}
 
-      const totalAmount = totalBets.reduce((sum, bet) => sum + bet.amount, 0);
-      return { outcomeId: outcome.id, totalBets: totalAmount };
-    }),
-  );
+export async function handleMarketStream({
+  params,
+  request,
+  set,
+}: {
+  params: { id: number };
+  request: Request;
+  set: { status: number };
+}) {
+  const market = await getEnrichedMarket(params.id);
 
-  const totalMarketBets = betsPerOutcome.reduce((sum, b) => sum + b.totalBets, 0);
+  if (!market) {
+    set.status = 404;
+    return { error: "Market not found" };
+  }
 
-  return {
-    id: market.id,
-    title: market.title,
-    description: market.description,
-    status: market.status,
-    creator: market.creator?.username,
-    outcomes: market.outcomes.map((outcome) => {
-      const outcomeBets = betsPerOutcome.find((b) => b.outcomeId === outcome.id)?.totalBets || 0;
-      const odds =
-        totalMarketBets > 0 ? Number(((outcomeBets / totalMarketBets) * 100).toFixed(2)) : 0;
-
-      return {
-        id: outcome.id,
-        title: outcome.title,
-        odds,
-        totalBets: outcomeBets,
-      };
-    }),
-    totalMarketBets,
-  };
+  return createMarketStreamResponse({
+    marketId: params.id,
+    initialMarket: market,
+    signal: request.signal,
+  });
 }
 
 export async function handlePlaceBet({
@@ -306,6 +236,8 @@ export async function handlePlaceBet({
       amount: Number(amount),
     })
     .returning();
+
+  await broadcastMarketUpdate(marketId);
 
   set.status = 201;
   return {

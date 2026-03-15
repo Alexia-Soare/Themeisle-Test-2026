@@ -214,6 +214,20 @@ describe("Markets", () => {
     expect(data.outcomes).toHaveLength(2);
   });
 
+  it("GET /api/markets/:id/stream — opens market event stream", async () => {
+    const abortController = new AbortController();
+    const res = await app.handle(
+      new Request(`${BASE}/api/markets/${marketId}/stream`, {
+        signal: abortController.signal,
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/event-stream");
+
+    abortController.abort();
+  });
+
   it("GET /api/markets/:id — 404 for nonexistent market", async () => {
     const res = await app.handle(new Request(`${BASE}/api/markets/99999`));
 
