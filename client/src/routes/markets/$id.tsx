@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
 import type { Market } from "@/lib/api";
 import { api } from "@/lib/api";
@@ -8,6 +8,14 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+
+const DISTRIBUTION_COLORS = [
+  "var(--color-chart-1)",
+  "var(--color-chart-2)",
+  "var(--color-chart-3)",
+  "var(--color-chart-4)",
+  "var(--color-chart-5)",
+];
 
 function MarketDetailPage() {
   const { id } = useParams({ from: "/markets/$id" });
@@ -21,6 +29,31 @@ function MarketDetailPage() {
   const [isBetting, setIsBetting] = useState(false);
 
   const marketId = parseInt(id, 10);
+
+  const outcomeDistribution = useMemo(() => {
+    if (!market) {
+      return [] as Array<{
+        id: number;
+        title: string;
+        totalBets: number;
+        percentage: number;
+        color: string;
+      }>;
+    }
+
+    return market.outcomes.map((outcome, index) => {
+      const percentage =
+        market.totalMarketBets > 0 ? (outcome.totalBets / market.totalMarketBets) * 100 : 0;
+
+      return {
+        id: outcome.id,
+        title: outcome.title,
+        totalBets: outcome.totalBets,
+        percentage,
+        color: DISTRIBUTION_COLORS[index % DISTRIBUTION_COLORS.length],
+      };
+    });
+  }, [market]);
 
   const handleMarketUpdate = useEffectEvent((updatedMarket: Market) => {
     setMarket(updatedMarket);
@@ -165,6 +198,53 @@ function MarketDetailPage() {
             </div>
 
             {/* Market Stats */}
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold">Bet Distribution</h3>
+
+              {market.totalMarketBets === 0 ? (
+                <div className="rounded-lg border border-border bg-secondary/10 p-4 text-sm text-muted-foreground">
+                  No bets placed yet. Distribution will appear after the first bet.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex h-4 overflow-hidden rounded-full border border-border bg-secondary/20">
+                    {outcomeDistribution.map((entry) => (
+                      <div
+                        key={entry.id}
+                        className="h-full transition-all"
+                        style={{
+                          width: `${entry.percentage}%`,
+                          backgroundColor: entry.color,
+                        }}
+                        title={`${entry.title}: ${entry.percentage.toFixed(1)}%`}
+                      />
+                    ))}
+                  </div>
+
+                  <div className="space-y-2">
+                    {outcomeDistribution.map((entry) => (
+                      <div
+                        key={entry.id}
+                        className="flex flex-col gap-1 rounded-md border border-border bg-background px-3 py-2 text-sm md:flex-row md:items-center md:justify-between"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="inline-block h-3 w-3 shrink-0 rounded-full"
+                            style={{ backgroundColor: entry.color }}
+                          />
+                          <span className="font-medium text-foreground">{entry.title}</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-muted-foreground">
+                          <span>{entry.percentage.toFixed(1)}%</span>
+                          <span>${entry.totalBets.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="rounded-lg p-6 border border-primary/20 bg-primary/5">
               <p className="text-sm text-muted-foreground mb-1">Total Market Value</p>
               <p className="text-4xl font-bold text-primary">
