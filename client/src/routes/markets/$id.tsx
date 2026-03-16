@@ -17,6 +17,24 @@ const DISTRIBUTION_COLORS = [
   "var(--color-chart-5)",
 ];
 
+function formatDecimalOdds(chancePercent: number): string {
+  if (!Number.isFinite(chancePercent) || chancePercent <= 0) {
+    return "-";
+  }
+
+  const decimalOdds = 100 / chancePercent;
+  const fractionDigits = decimalOdds < 10 ? 2 : 1;
+  return `${decimalOdds.toFixed(fractionDigits)}x`;
+}
+
+function formatChance(chancePercent: number): string {
+  if (!Number.isFinite(chancePercent)) {
+    return "0%";
+  }
+
+  return `${chancePercent.toFixed(chancePercent % 1 === 0 ? 0 : 1)}%`;
+}
+
 function MarketDetailPage() {
   const { id } = useParams({ from: "/markets/$id" });
   const navigate = useNavigate();
@@ -188,9 +206,14 @@ function MarketDetailPage() {
                         Total bets: ${outcome.totalBets.toFixed(2)}
                       </p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-3xl font-bold text-primary">{outcome.odds}%</p>
-                      <p className="text-xs text-muted-foreground">odds</p>
+                    <div className="flex items-center gap-3">
+                      <p className="text-xs font-semibold text-muted-foreground md:text-sm">{formatDecimalOdds(outcome.odds)}</p>
+                      <Badge
+                        variant="outline"
+                        className="h-auto min-h-12 min-w-18 justify-center overflow-visible px-3 py-2 text-[28px] font-bold leading-[1.1] md:text-[28px]"
+                      >
+                        {formatChance(outcome.odds)}
+                      </Badge>
                     </div>
                   </div>
                 </div>
@@ -207,17 +230,23 @@ function MarketDetailPage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <div className="flex h-4 overflow-hidden rounded-full border border-border bg-secondary/20">
+                  <div className="flex h-8 overflow-hidden rounded-full border border-border bg-secondary/20">
                     {outcomeDistribution.map((entry) => (
                       <div
                         key={entry.id}
-                        className="h-full transition-all"
+                        className="flex h-full items-center justify-center overflow-hidden px-1 transition-all"
                         style={{
                           width: `${entry.percentage}%`,
                           backgroundColor: entry.color,
                         }}
                         title={`${entry.title}: ${entry.percentage.toFixed(1)}%`}
-                      />
+                      >
+                        {entry.percentage >= 12 ? (
+                          <span className="truncate text-xs font-semibold text-white/95">
+                            {entry.percentage.toFixed(0)}%
+                          </span>
+                        ) : null}
+                      </div>
                     ))}
                   </div>
 
