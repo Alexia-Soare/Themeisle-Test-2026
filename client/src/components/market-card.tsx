@@ -24,13 +24,13 @@ export function MarketCard({ market }: MarketCardProps) {
           </Badge>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="flex flex-1 flex-col gap-4">
         {/* Outcomes */}
         <div className="space-y-2">
           {market.outcomes.map((outcome) => (
             <div
               key={outcome.id}
-              className="flex items-center justify-between bg-secondary/20 p-3 rounded-md"
+              className="flex items-center justify-between rounded-md bg-secondary/20 p-3"
             >
               <div>
                 <p className="text-sm font-medium">{outcome.title}</p>
@@ -45,16 +45,20 @@ export function MarketCard({ market }: MarketCardProps) {
           ))}
         </div>
 
-        {/* Total Market Value */}
-        <div className="p-3 rounded-md border border-primary/20 bg-primary/5">
-          <p className="text-xs text-muted-foreground">Total Market Value</p>
-          <p className="text-2xl font-bold text-primary">${market.totalMarketBets.toFixed(2)}</p>
-        </div>
+        <div className="mt-auto space-y-4">
+          {/* Total Market Value */}
+          <div className="rounded-md border border-primary/20 bg-primary/5 p-3">
+            <p className="text-xs text-muted-foreground">Total Market Value</p>
+            <p className="text-2xl font-bold text-primary">
+              ${market.totalMarketBets.toFixed(2)}
+            </p>
+          </div>
 
-        {/* Action Button */}
-        <Button className="w-full" onClick={() => navigate({ to: `/markets/${market.id}` })}>
-          {market.status === "active" ? "Place Bet" : "View Results"}
-        </Button>
+          {/* Action Button */}
+          <Button className="w-full" onClick={() => navigate({ to: `/markets/${market.id}` })}>
+            {market.status === "active" ? "Place Bet" : "View Results"}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
