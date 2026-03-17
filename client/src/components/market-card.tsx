@@ -11,8 +11,23 @@ interface MarketCardProps {
 export function MarketCard({ market }: MarketCardProps) {
   const navigate = useNavigate();
 
+  const handleCardClick = () => {
+    navigate({ to: `/markets/${market.id}` });
+  };
+
   return (
-    <Card>
+    <Card
+      className="cursor-pointer rounded-xl transition-all hover:shadow-lg"
+      onClick={handleCardClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          handleCardClick();
+        }
+      }}
+    >
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="flex-1">
@@ -55,7 +70,7 @@ export function MarketCard({ market }: MarketCardProps) {
           </div>
 
           {/* Action Button */}
-          <Button className="w-full" onClick={() => navigate({ to: `/markets/${market.id}` })}>
+          <Button className="w-full" onClick={(e) => e.stopPropagation()}>
             {market.status === "active" ? "Place Bet" : "View Results"}
           </Button>
         </div>
