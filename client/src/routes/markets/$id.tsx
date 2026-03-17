@@ -47,6 +47,8 @@ function MarketDetailPage() {
   const [isBetting, setIsBetting] = useState(false);
 
   const marketId = parseInt(id, 10);
+  const parsedBetAmount = Number.parseFloat(betAmount);
+  const isBetAmountValid = Number.isFinite(parsedBetAmount) && parsedBetAmount > 0;
 
   const outcomeDistribution = useMemo(() => {
     if (!market) {
@@ -106,15 +108,20 @@ function MarketDetailPage() {
   }, [handleMarketUpdate, isAuthenticated, marketId]);
 
   const handlePlaceBet = async () => {
-    if (!selectedOutcomeId || !betAmount) {
-      setError("Please select an outcome and enter a bet amount");
+    if (!selectedOutcomeId) {
+      setError("Please select an outcome");
+      return;
+    }
+
+    if (!isBetAmountValid) {
+      setError("Bet amount must be a positive number");
       return;
     }
 
     try {
       setIsBetting(true);
       setError(null);
-      await api.placeBet(marketId, selectedOutcomeId, parseFloat(betAmount));
+      await api.placeBet(marketId, selectedOutcomeId, parsedBetAmount);
       setBetAmount("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to place bet");
@@ -302,7 +309,7 @@ function MarketDetailPage() {
                       id="betAmount"
                       type="number"
                       step="0.01"
-                      min="0"
+                      min="0.01"
                       value={betAmount}
                       onChange={(e) => setBetAmount(e.target.value)}
                       placeholder="Enter amount"
@@ -313,7 +320,7 @@ function MarketDetailPage() {
                   <Button
                     className="w-full text-lg py-6"
                     onClick={handlePlaceBet}
-                    disabled={isBetting || !selectedOutcomeId || !betAmount}
+                    disabled={isBetting || !selectedOutcomeId || !isBetAmountValid}
                   >
                     {isBetting ? "Placing bet..." : "Place Bet"}
                   </Button>
