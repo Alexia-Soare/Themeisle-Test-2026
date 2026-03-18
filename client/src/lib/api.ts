@@ -56,6 +56,12 @@ export interface ActiveBetSummary {
   currentOdds: number;
 }
 
+export interface LeaderboardEntry {
+  userId: number;
+  username: string;
+  totalWinnings: number;
+}
+
 // API Client
 class ApiClient {
   private baseUrl: string;
@@ -125,6 +131,10 @@ class ApiClient {
 
   async getActiveBets(): Promise<Array<ActiveBetSummary>> {
     return this.request("/api/auth/me/active-bets");
+  }
+
+  async getLeaderboard(): Promise<Array<LeaderboardEntry>> {
+    return this.request("/api/markets/leaderboard");
   }
 
   // Markets endpoints

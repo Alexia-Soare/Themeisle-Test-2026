@@ -148,6 +148,9 @@ function DashboardPage() {
           </div>
           <div className="flex items-center gap-4">
             <Button onClick={() => navigate({ to: "/markets/new" })}>Create Market</Button>
+            <Button variant="outline" onClick={() => navigate({ to: "/leaderboard" })}>
+              Leaderboard
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
