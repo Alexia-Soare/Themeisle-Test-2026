@@ -232,6 +232,63 @@ describe("Markets", () => {
     expect(data[0].result).toBe("lost");
   });
 
+  it("GET /api/markets/leaderboard — ranks users by total winnings descending", async () => {
+    const registerRes = await app.handle(
+      new Request(`${BASE}/api/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: "winneruser",
+          email: "winner@example.com",
+          password: "winnerpass123",
+        }),
+      }),
+    );
+
+    expect(registerRes.status).toBe(201);
+    const registeredWinner = await registerRes.json();
+
+    const resolvedMarket = await db.query.marketsTable.findFirst({
+      where: eq(marketsTable.id, resolvedMarketId),
+      columns: {
+        resolvedOutcomeId: true,
+      },
+    });
+
+    expect(resolvedMarket?.resolvedOutcomeId).toBeDefined();
+
+    await db.insert(betsTable).values({
+      userId: registeredWinner.id,
+      marketId: resolvedMarketId,
+      outcomeId: resolvedMarket?.resolvedOutcomeId as number,
+      amount: 40,
+    });
+
+    const leaderboardRes = await app.handle(new Request(`${BASE}/api/markets/leaderboard`));
+
+    expect(leaderboardRes.status).toBe(200);
+    const leaderboard = await leaderboardRes.json();
+    expect(Array.isArray(leaderboard)).toBe(true);
+
+    const winnerEntry = leaderboard.find((entry: { userId: number }) => entry.userId === registeredWinner.id);
+    const originalUserEntry = leaderboard.find((entry: { userId: number }) => entry.userId === userId);
+
+    expect(winnerEntry).toBeDefined();
+    expect(originalUserEntry).toBeDefined();
+    expect(winnerEntry.totalWinnings).toBe(65);
+    expect(originalUserEntry.totalWinnings).toBe(0);
+
+    const allUsers = await db.query.usersTable.findMany({
+      columns: {
+        id: true,
+      },
+    });
+    expect(leaderboard).toHaveLength(allUsers.length);
+
+    expect(leaderboard[0].userId).toBe(registeredWinner.id);
+    expect(leaderboard[0].totalWinnings).toBeGreaterThanOrEqual(leaderboard[1].totalWinnings);
+  });
+
   it("GET /api/markets — rejects invalid status filters", async () => {
     const res = await app.handle(new Request(`${BASE}/api/markets?status=closed`));
 

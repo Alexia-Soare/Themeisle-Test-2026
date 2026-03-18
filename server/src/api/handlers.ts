@@ -4,6 +4,7 @@ import { usersTable, marketsTable, marketOutcomesTable, betsTable } from "../db/
 import { hashPassword, verifyPassword, type AuthTokenPayload } from "../lib/auth";
 import { broadcastMarketUpdate, createMarketStreamResponse } from "../lib/market-events";
 import { getEnrichedMarket, listEnrichedMarkets, type MarketStatus } from "../lib/market-data";
+import { calculateUserWinnings } from "../lib/odds";
 import {
   validateRegistration,
   validateLogin,
@@ -154,6 +155,77 @@ export async function handleGetActiveBets({
         amount: bet.amount,
         currentOdds: selectedOutcome?.odds ?? 0,
       };
+    });
+}
+
+export async function handleGetLeaderboard() {
+  const [users, bets] = await Promise.all([
+    db.query.usersTable.findMany({
+      columns: {
+        id: true,
+        username: true,
+      },
+    }),
+    db.query.betsTable.findMany({
+      with: {
+        market: {
+          columns: {
+            id: true,
+            status: true,
+            resolvedOutcomeId: true,
+          },
+        },
+      },
+    }),
+  ]);
+
+  const resolvedBets = bets.filter(
+    (bet) => bet.market.status === "resolved" && bet.market.resolvedOutcomeId !== null,
+  );
+
+  const totalBetsPerMarket = new Map<number, number>();
+  const winningBetsPerMarket = new Map<number, number>();
+
+  for (const bet of resolvedBets) {
+    totalBetsPerMarket.set(bet.marketId, (totalBetsPerMarket.get(bet.marketId) ?? 0) + bet.amount);
+
+    if (bet.outcomeId === bet.market.resolvedOutcomeId) {
+      winningBetsPerMarket.set(
+        bet.marketId,
+        (winningBetsPerMarket.get(bet.marketId) ?? 0) + bet.amount,
+      );
+    }
+  }
+
+  const winningsByUserId = new Map<number, number>();
+
+  for (const bet of resolvedBets) {
+    if (bet.outcomeId !== bet.market.resolvedOutcomeId) {
+      continue;
+    }
+
+    const totalMarketBets = totalBetsPerMarket.get(bet.marketId) ?? 0;
+    const winningOutcomeTotalBets = winningBetsPerMarket.get(bet.marketId) ?? 0;
+
+    const winnings = calculateUserWinnings(bet.amount, winningOutcomeTotalBets, totalMarketBets);
+    winningsByUserId.set(
+      bet.userId,
+      Number(((winningsByUserId.get(bet.userId) ?? 0) + winnings).toFixed(2)),
+    );
+  }
+
+  return users
+    .map((user) => ({
+      userId: user.id,
+      username: user.username,
+      totalWinnings: winningsByUserId.get(user.id) ?? 0,
+    }))
+    .sort((left, right) => {
+      if (right.totalWinnings !== left.totalWinnings) {
+        return right.totalWinnings - left.totalWinnings;
+      }
+
+      return left.username.localeCompare(right.username);
     });
 }
 
