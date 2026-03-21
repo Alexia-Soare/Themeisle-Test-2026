@@ -7,13 +7,16 @@ import {
   handleGetMarket,
   handleMarketStream,
   handlePlaceBet,
+  handleResolveMarket,
 } from "./handlers";
 
 export const marketRoutes = new Elysia({ prefix: "/api/markets" })
   .use(authMiddleware)
   .get("/", handleListMarkets, {
     query: t.Object({
-      status: t.Optional(t.Union([t.Literal("active"), t.Literal("resolved")])),
+      status: t.Optional(
+        t.Union([t.Literal("active"), t.Literal("resolved")]),
+      ),
     }),
   })
   .get("/leaderboard", handleGetLeaderboard)
@@ -54,4 +57,27 @@ export const marketRoutes = new Elysia({ prefix: "/api/markets" })
             amount: t.Number(),
           }),
         }),
+  )
+  .guard(
+    {
+      beforeHandle({ user, set }) {
+        if (!user) {
+          set.status = 401;
+          return { error: "Unauthorized" };
+        }
+        if (user.role !== "admin") {
+          set.status = 403;
+          return { error: "Admin access required" };
+        }
+      },
+    },
+    (app) =>
+      app.post("/:id/resolve", handleResolveMarket, {
+        params: t.Object({
+          id: t.Numeric(),
+        }),
+        body: t.Object({
+          outcomeId: t.Number(),
+        }),
+      }),
   );

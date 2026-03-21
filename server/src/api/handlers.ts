@@ -10,6 +10,7 @@ import {
   validateLogin,
   validateMarketCreation,
   validateBet,
+  validateResolution,
 } from "../lib/validation";
 
 type JwtSigner = {
@@ -46,13 +47,14 @@ export async function handleRegister({
 
   const newUser = await db.insert(usersTable).values({ username, email, passwordHash }).returning();
 
-  const token = await jwt.sign({ userId: newUser[0].id });
+  const token = await jwt.sign({ userId: newUser[0].id, role: newUser[0].role });
 
   set.status = 201;
   return {
     id: newUser[0].id,
     username: newUser[0].username,
     email: newUser[0].email,
+    role: newUser[0].role,
     token,
   };
 }
@@ -83,12 +85,13 @@ export async function handleLogin({
     return { error: "Invalid email or password" };
   }
 
-  const token = await jwt.sign({ userId: user.id });
+  const token = await jwt.sign({ userId: user.id, role: user.role });
 
   return {
     id: user.id,
     username: user.username,
     email: user.email,
+    role: user.role,
     token,
   };
 }
@@ -133,10 +136,9 @@ export async function handleGetActiveBets({
 
   const activeBets = bets.filter((bet) => bet.market.status === "active");
   const enrichedMarkets = await Promise.all(
-    [...new Set(activeBets.map((bet) => bet.marketId))].map(async (marketId) => [
-      marketId,
-      await getEnrichedMarket(marketId),
-    ] as const),
+    [...new Set(activeBets.map((bet) => bet.marketId))].map(async (marketId) =>
+      [marketId, await getEnrichedMarket(marketId)] as const,
+    ),
   );
   const enrichedMarketMap = new Map(enrichedMarkets);
 
@@ -383,5 +385,66 @@ export async function handlePlaceBet({
     marketId: bet[0].marketId,
     outcomeId: bet[0].outcomeId,
     amount: bet[0].amount,
+  };
+}
+
+export async function handleResolveMarket({
+  params,
+  body,
+  set,
+  user,
+}: {
+  params: { id: number };
+  body: { outcomeId: number };
+  set: { status: number };
+  user: typeof usersTable.$inferSelect;
+}) {
+  const marketId = params.id;
+  const { outcomeId } = body;
+  const errors = validateResolution(outcomeId);
+
+  if (errors.length > 0) {
+    set.status = 400;
+    return { errors };
+  }
+
+  const market = await db.query.marketsTable.findFirst({
+    where: eq(marketsTable.id, marketId),
+    with: {
+      outcomes: true,
+    },
+  });
+
+  if (!market) {
+    set.status = 404;
+    return { error: "Market not found" };
+  }
+
+  if (market.status !== "active") {
+    set.status = 400;
+    return { error: "Market is not active" };
+  }
+
+  const outcome = market.outcomes.find((item) => item.id === outcomeId);
+  if (!outcome) {
+    set.status = 404;
+    return { error: "Outcome not found in this market" };
+  }
+
+  await db
+    .update(marketsTable)
+    .set({
+      status: "resolved",
+      resolvedOutcomeId: outcomeId,
+      resolvedBy: user.id,
+      resolvedAt: new Date(),
+    })
+    .where(eq(marketsTable.id, marketId));
+
+  await broadcastMarketUpdate(marketId);
+
+  return {
+    success: true,
+    market: await getEnrichedMarket(marketId),
   };
 }

@@ -1,10 +1,9 @@
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
-import { eq } from "drizzle-orm";
 import * as schema from "./schema";
 import { hashPassword } from "../lib/auth";
 
-const db = drizzle(new Database(process.env.DB_FILE_NAME || "database.sqlite"), {
+const db = drizzle(new Database(process.env.DB_FILE_NAME || "prediction_market.db"), {
   schema,
 });
 
@@ -13,6 +12,13 @@ const USERS = [
   { username: "bob", email: "bob@example.com", password: "password456" },
   { username: "charlie", email: "charlie@example.com", password: "password789" },
 ];
+
+const ADMIN_USER = {
+  username: "admin",
+  email: "admin@example.com",
+  password: "admin123",
+  role: "admin" as const,
+};
 
 const MARKETS = [
   {
@@ -82,6 +88,26 @@ async function seedDatabase() {
     });
     console.log(`  ✓ Created user: ${user.username} (${user.email})`);
   }
+
+  // Create admin user
+  const adminPasswordHash = await hashPassword(ADMIN_USER.password);
+  const adminCreated = await db
+    .insert(schema.usersTable)
+    .values({
+      username: ADMIN_USER.username,
+      email: ADMIN_USER.email,
+      passwordHash: adminPasswordHash,
+      role: "admin",
+    })
+    .returning();
+
+  createdUsers.push({
+    id: adminCreated[0].id,
+    username: ADMIN_USER.username,
+    email: ADMIN_USER.email,
+    password: ADMIN_USER.password,
+  });
+  console.log(`  ✓ Created admin user: ${ADMIN_USER.username} (${ADMIN_USER.email})`);
 
   // 2. Create markets and outcomes
   console.log("\n📊 Creating markets...");

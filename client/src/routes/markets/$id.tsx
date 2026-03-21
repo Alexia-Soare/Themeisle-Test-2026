@@ -38,17 +38,20 @@ function formatChance(chancePercent: number): string {
 function MarketDetailPage() {
   const { id } = useParams({ from: "/markets/$id" });
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [market, setMarket] = useState<Market | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedOutcomeId, setSelectedOutcomeId] = useState<number | null>(null);
   const [betAmount, setBetAmount] = useState("");
   const [isBetting, setIsBetting] = useState(false);
+  const [resolveOutcomeId, setResolveOutcomeId] = useState<number | null>(null);
+  const [isResolving, setIsResolving] = useState(false);
 
   const marketId = parseInt(id, 10);
   const parsedBetAmount = Number.parseFloat(betAmount);
   const isBetAmountValid = Number.isFinite(parsedBetAmount) && parsedBetAmount > 0;
+  const isAdmin = user?.role === "admin";
 
   const outcomeDistribution = useMemo(() => {
     if (!market) {
@@ -127,6 +130,23 @@ function MarketDetailPage() {
       setError(err instanceof Error ? err.message : "Failed to place bet");
     } finally {
       setIsBetting(false);
+    }
+  };
+
+  const handleResolveMarket = async () => {
+    if (!resolveOutcomeId) {
+      setError("Please select an outcome to resolve the market");
+      return;
+    }
+
+    try {
+      setIsResolving(true);
+      setError(null);
+      await api.resolveMarket(marketId, resolveOutcomeId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to resolve market");
+    } finally {
+      setIsResolving(false);
     }
   };
 
@@ -287,6 +307,45 @@ function MarketDetailPage() {
                 ${market.totalMarketBets.toFixed(2)}
               </p>
             </div>
+
+            {isAdmin && market.status === "active" && (
+              <Card className="border-amber-300 bg-amber-50/60">
+                <CardHeader>
+                  <CardTitle>Admin: Resolve Market</CardTitle>
+                  <CardDescription>Select the winning outcome and resolve this market.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="space-y-2">
+                    <Label>Winning Outcome</Label>
+                    <div className="grid gap-2">
+                      {market.outcomes.map((outcome) => (
+                        <button
+                          key={outcome.id}
+                          type="button"
+                          className={`w-full rounded-md border px-3 py-2 text-left transition-colors ${
+                            resolveOutcomeId === outcome.id
+                              ? "border-primary bg-primary/10"
+                              : "border-border bg-background hover:border-primary/50"
+                          }`}
+                          onClick={() => setResolveOutcomeId(outcome.id)}
+                        >
+                          {outcome.title}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Button
+                    variant="destructive"
+                    className="w-full"
+                    onClick={handleResolveMarket}
+                    disabled={isResolving || !resolveOutcomeId}
+                  >
+                    {isResolving ? "Resolving market..." : "Resolve Market"}
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Betting Section */}
             {market.status === "active" && (

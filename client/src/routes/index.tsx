@@ -119,6 +119,7 @@ function DashboardPage() {
   };
 
   const profileInitial = user?.username.charAt(0).toUpperCase() ?? "U";
+  const isAdmin = user?.role === "admin";
 
   if (!isAuthenticated) {
     return (
@@ -206,6 +207,12 @@ function DashboardPage() {
             </Select>
           </div>
         </div>
+
+        {isAdmin && (
+          <div className="mb-6 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Admin mode is enabled. Open any active market to resolve it and set the winning outcome.
+          </div>
+        )}
 
         {/* Error State */}
         {error && (

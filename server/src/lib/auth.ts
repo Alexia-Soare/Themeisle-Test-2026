@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 
 export interface AuthTokenPayload {
   userId: number;
+  role: "user" | "admin";
 }
 
 /**

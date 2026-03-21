@@ -27,6 +27,7 @@ export interface User {
   username: string;
   email: string;
   token: string;
+  role?: "user" | "admin";
 }
 
 export interface Bet {
@@ -99,7 +100,6 @@ class ApiClient {
           : {};
 
     if (!response.ok) {
-      // If there are validation errors, throw them
       if (data.errors && Array.isArray(data.errors)) {
         const errorMessage = data.errors.map((e: any) => `${e.field}: ${e.message}`).join(", ");
         throw new Error(errorMessage);
@@ -144,6 +144,16 @@ class ApiClient {
 
   async getMarket(id: number): Promise<Market> {
     return this.request(`/api/markets/${id}`);
+  }
+
+  async resolveMarket(
+    marketId: number,
+    outcomeId: number,
+  ): Promise<{ success: boolean; market: Market }> {
+    return this.request(`/api/markets/${marketId}/resolve`, {
+      method: "POST",
+      body: JSON.stringify({ outcomeId }),
+    });
   }
 
   subscribeToMarketUpdates(

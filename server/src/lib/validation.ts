@@ -118,3 +118,19 @@ function isValidEmail(email: string): boolean {
   const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return regex.test(email);
 }
+
+/**
+ * Validate market resolution
+ */
+export function validateResolution(outcomeId: number): ValidationError[] {
+  const errors: ValidationError[] = [];
+
+  if (!outcomeId || outcomeId <= 0) {
+    errors.push({
+      field: "outcomeId",
+      message: "Valid outcome ID is required",
+    });
+  }
+
+  return errors;
+}

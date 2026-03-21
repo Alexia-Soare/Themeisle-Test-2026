@@ -18,6 +18,9 @@ export const usersTable = sqliteTable(
     username: text("username").notNull().unique(),
     email: text("email").notNull().unique(),
     passwordHash: text("password_hash").notNull(),
+    role: text("role", { enum: ["user", "admin"] })
+      .notNull()
+      .default("user"),
     createdAt: integer("created_at", { mode: "timestamp" })
       .notNull()
       .$defaultFn(() => new Date()),
@@ -28,6 +31,7 @@ export const usersTable = sqliteTable(
   (table) => ({
     usernameIdx: uniqueIndex("users_username_idx").on(table.username),
     emailIdx: uniqueIndex("users_email_idx").on(table.email),
+    roleIdx: index("users_role_idx").on(table.role),
   }),
 );
 
@@ -48,10 +52,13 @@ export const marketsTable = sqliteTable(
       .notNull()
       .$defaultFn(() => new Date()),
     resolvedOutcomeId: integer("resolved_outcome_id"),
+    resolvedBy: integer("resolved_by").references(() => usersTable.id),
+    resolvedAt: integer("resolved_at", { mode: "timestamp" }),
   },
   (table) => ({
     createdByIdx: index("markets_created_by_idx").on(table.createdBy),
     statusIdx: index("markets_status_idx").on(table.status),
+    resolvedByIdx: index("markets_resolved_by_idx").on(table.resolvedBy),
   }),
 );
 
@@ -100,6 +107,7 @@ export const betsTable = sqliteTable(
 // Relations
 export const usersRelations = relations(usersTable, ({ many }) => ({
   createdMarkets: many(marketsTable, { relationName: "createdBy" }),
+  resolvedMarkets: many(marketsTable, { relationName: "resolvedBy" }),
   bets: many(betsTable, { relationName: "bets" }),
 }));
 
@@ -108,6 +116,11 @@ export const marketsRelations = relations(marketsTable, ({ one, many }) => ({
     fields: [marketsTable.createdBy],
     references: [usersTable.id],
     relationName: "createdBy",
+  }),
+  resolvedByUser: one(usersTable, {
+    fields: [marketsTable.resolvedBy],
+    references: [usersTable.id],
+    relationName: "resolvedBy",
   }),
   outcomes: many(marketOutcomesTable, { relationName: "outcomes" }),
   bets: many(betsTable, { relationName: "bets" }),
