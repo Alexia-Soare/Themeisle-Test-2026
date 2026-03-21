@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { User } from "./api";
+import { User, api } from "./api";
 
 interface AuthContextType {
   user: User | null;
@@ -16,14 +16,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Load user from localStorage on mount
     const token = localStorage.getItem("auth_token");
     const userData = localStorage.getItem("auth_user");
 
     if (token && userData) {
       try {
         const parsedUser = JSON.parse(userData);
-        setUser({ ...parsedUser, token });
+        // Validate token is still valid server-side
+        api
+          .getMe()
+          .then((serverUser) => {
+            setUser({ ...parsedUser, ...serverUser, token });
+          })
+          .catch(() => {
+            // Token is stale/invalid — clear it
+            localStorage.removeItem("auth_token");
+            localStorage.removeItem("auth_user");
+          })
+          .finally(() => {
+            setIsLoading(false);
+          });
+        return;
       } catch {
         localStorage.removeItem("auth_token");
         localStorage.removeItem("auth_user");
@@ -31,6 +44,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     setIsLoading(false);
+  }, []);
+
+  // Listen for 401 events dispatched by api client
+  useEffect(() => {
+    const handleAuthLogout = () => {
+      setUser(null);
+    };
+    window.addEventListener("auth:logout", handleAuthLogout);
+    return () => window.removeEventListener("auth:logout", handleAuthLogout);
   }, []);
 
   const login = (newUser: User) => {

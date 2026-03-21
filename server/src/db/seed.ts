@@ -151,14 +151,11 @@ async function seedDatabase() {
     with: { outcomes: true },
   });
 
-  for (let i = 0; i < markets.length; i++) {
-    const market = markets[i];
-    const user = createdUsers[i % createdUsers.length];
-
-    // Place bets on different outcomes
-    for (let j = 0; j < market.outcomes.length; j++) {
-      const outcome = market.outcomes[j];
-      const betAmount = 50 + j * 25; // 50, 75, 100, etc.
+  for (const market of markets) {
+    for (const user of createdUsers) {
+      // Each user bets on the first outcome of every market
+      const outcome = market.outcomes[0];
+      const betAmount = 50;
 
       await db.insert(schema.betsTable).values({
         userId: user.id,
@@ -170,7 +167,7 @@ async function seedDatabase() {
       betCount++;
     }
 
-    console.log(`  ✓ Created ${market.outcomes.length} bets on "${market.title}"`);
+    console.log(`  ✓ Created ${createdUsers.length} bets on "${market.title}"`);
   }
 
   console.log("\n" + "=".repeat(60));

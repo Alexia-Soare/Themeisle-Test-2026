@@ -99,6 +99,12 @@ class ApiClient {
           ? { error: rawBody }
           : {};
 
+    if (response.status === 401) {
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("auth_user");
+      window.dispatchEvent(new CustomEvent("auth:logout"));
+    }
+
     if (!response.ok) {
       if (data.errors && Array.isArray(data.errors)) {
         const errorMessage = data.errors.map((e: any) => `${e.field}: ${e.message}`).join(", ");
@@ -123,6 +129,10 @@ class ApiClient {
       method: "POST",
       body: JSON.stringify({ email, password }),
     });
+  }
+
+  async getMe(): Promise<User> {
+    return this.request("/api/auth/me");
   }
 
   async getResolvedBets(): Promise<Array<ResolvedBetSummary>> {

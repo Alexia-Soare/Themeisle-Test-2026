@@ -97,6 +97,39 @@ describe("Auth", () => {
 
     expect(res.status).toBe(401);
   });
+
+  it("GET /api/auth/me — returns 401 with no token", async () => {
+    const res = await app.handle(new Request(`${BASE}/api/auth/me`));
+
+    expect(res.status).toBe(401);
+    const data = await res.json();
+    expect(data.error).toBe("Unauthorized");
+  });
+
+  it("GET /api/auth/me — returns 401 with invalid token", async () => {
+    const res = await app.handle(
+      new Request(`${BASE}/api/auth/me`, {
+        headers: { Authorization: "Bearer not.a.valid.jwt.token" },
+      }),
+    );
+
+    expect(res.status).toBe(401);
+  });
+
+  it("GET /api/auth/me — returns current user info with valid token", async () => {
+    const res = await app.handle(
+      new Request(`${BASE}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.id).toBe(userId);
+    expect(data.username).toBe("testuser");
+    expect(data.email).toBe("test@example.com");
+    expect(data.role).toBeDefined();
+  });
 });
 
 describe("Markets", () => {

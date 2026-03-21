@@ -28,6 +28,12 @@ export const authRoutes = new Elysia({ prefix: "/api/auth" })
     },
     (app) =>
       app
+        .get("/me", ({ user }) => ({
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+        }))
         .get("/me/resolved-bets", handleGetResolvedBets)
         .get("/me/active-bets", handleGetActiveBets),
   );
