@@ -3,7 +3,7 @@ import db from "../db";
 import { betsTable, marketsTable } from "../db/schema";
 import { calculateOutcomeOdds } from "./odds";
 
-export type MarketStatus = "active" | "resolved";
+export type MarketStatus = "active" | "resolved" | "archived";
 
 export interface EnrichedMarket {
   id: number;

@@ -1,17 +1,17 @@
 import { Elysia, t } from "elysia";
 import { authMiddleware } from "../middleware/auth.middleware";
-import { handleGetActiveBets, handleGetResolvedBets, handleRegister, handleLogin } from "./handlers";
+import { handleGetActiveBets, handleGetArchivedBets, handleGetResolvedBets, handleRegister, handleLogin } from "./handlers";
 
 export const authRoutes = new Elysia({ prefix: "/api/auth" })
   .use(authMiddleware)
-  .post("/register", handleRegister, {
+  .post("/register", handleRegister as any, {
     body: t.Object({
       username: t.String(),
       email: t.String(),
       password: t.String(),
     }),
   })
-  .post("/login", handleLogin, {
+  .post("/login", handleLogin as any, {
     body: t.Object({
       email: t.String(),
       password: t.String(),
@@ -29,11 +29,13 @@ export const authRoutes = new Elysia({ prefix: "/api/auth" })
     (app) =>
       app
         .get("/me", ({ user }) => ({
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          role: user.role,
+          id: user!.id,
+          username: user!.username,
+          email: user!.email,
+          role: user!.role,
+          balance: user!.balance,
         }))
-        .get("/me/resolved-bets", handleGetResolvedBets)
-        .get("/me/active-bets", handleGetActiveBets),
+        .get("/me/resolved-bets", handleGetResolvedBets as any)
+        .get("/me/active-bets", handleGetActiveBets as any)
+        .get("/me/archived-bets", handleGetArchivedBets as any),
   );

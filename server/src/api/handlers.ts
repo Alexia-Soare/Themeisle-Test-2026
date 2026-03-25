@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import db from "../db";
 import { usersTable, marketsTable, marketOutcomesTable, betsTable } from "../db/schema";
 import { hashPassword, verifyPassword, type AuthTokenPayload } from "../lib/auth";
@@ -45,16 +45,17 @@ export async function handleRegister({
 
   const passwordHash = await hashPassword(password);
 
-  const newUser = await db.insert(usersTable).values({ username, email, passwordHash }).returning();
+  const [newUser] = await db.insert(usersTable).values({ username, email, passwordHash }).returning();
 
-  const token = await jwt.sign({ userId: newUser[0].id, role: newUser[0].role });
+  const token = await jwt.sign({ userId: newUser!.id, role: newUser!.role });
 
   set.status = 201;
   return {
-    id: newUser[0].id,
-    username: newUser[0].username,
-    email: newUser[0].email,
-    role: newUser[0].role,
+    id: newUser!.id,
+    username: newUser!.username,
+    email: newUser!.email,
+    role: newUser!.role,
+    balance: newUser!.balance,
     token,
   };
 }
@@ -92,6 +93,7 @@ export async function handleLogin({
     username: user.username,
     email: user.email,
     role: user.role,
+    balance: user.balance,
     token,
   };
 }
@@ -118,6 +120,31 @@ export async function handleGetResolvedBets({
       marketTitle: bet.market.title,
       outcomeTitle: bet.outcome.title,
       result: bet.outcomeId === bet.market.resolvedOutcomeId ? "won" : "lost",
+    }));
+}
+
+export async function handleGetArchivedBets({
+  user,
+}: {
+  user: typeof usersTable.$inferSelect;
+}) {
+  const bets = await db.query.betsTable.findMany({
+    where: eq(betsTable.userId, user.id),
+    with: {
+      market: true,
+      outcome: true,
+    },
+  });
+
+  return bets
+    .filter((bet) => bet.market.status === "archived")
+    .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
+    .map((bet) => ({
+      id: bet.id,
+      marketId: bet.marketId,
+      marketTitle: bet.market.title,
+      outcomeTitle: bet.outcome.title,
+      amount: bet.amount,
     }));
 }
 
@@ -248,7 +275,7 @@ export async function handleCreateMarket({
     return { errors };
   }
 
-  const market = await db
+  const [market] = await db
     .insert(marketsTable)
     .values({
       title,
@@ -261,7 +288,7 @@ export async function handleCreateMarket({
     .insert(marketOutcomesTable)
     .values(
       outcomes.map((title: string, index: number) => ({
-        marketId: market[0].id,
+        marketId: market!.id,
         title,
         position: index,
       })),
@@ -270,10 +297,10 @@ export async function handleCreateMarket({
 
   set.status = 201;
   return {
-    id: market[0].id,
-    title: market[0].title,
-    description: market[0].description,
-    status: market[0].status,
+    id: market!.id,
+    title: market!.title,
+    description: market!.description,
+    status: market!.status,
     outcomes: outcomeIds,
   };
 }
@@ -343,6 +370,11 @@ export async function handlePlaceBet({
     return { errors };
   }
 
+  if (user.balance < amount) {
+    set.status = 400;
+    return { error: "Insufficient balance" };
+  }
+
   const market = await db.query.marketsTable.findFirst({
     where: eq(marketsTable.id, marketId),
   });
@@ -366,25 +398,34 @@ export async function handlePlaceBet({
     return { error: "Outcome not found" };
   }
 
-  const bet = await db
-    .insert(betsTable)
-    .values({
-      userId: user.id,
-      marketId,
-      outcomeId,
-      amount: Number(amount),
-    })
-    .returning();
+  const bet = await db.transaction(async (tx) => {
+    const [inserted] = await tx
+      .insert(betsTable)
+      .values({
+        userId: user.id,
+        marketId,
+        outcomeId,
+        amount: Number(amount),
+      })
+      .returning();
+
+    await tx
+      .update(usersTable)
+      .set({ balance: sql`${usersTable.balance} - ${Number(amount)}` })
+      .where(eq(usersTable.id, user.id));
+
+    return inserted!;
+  });
 
   await broadcastMarketUpdate(marketId);
 
   set.status = 201;
   return {
-    id: bet[0].id,
-    userId: bet[0].userId,
-    marketId: bet[0].marketId,
-    outcomeId: bet[0].outcomeId,
-    amount: bet[0].amount,
+    id: bet.id,
+    userId: bet.userId,
+    marketId: bet.marketId,
+    outcomeId: bet.outcomeId,
+    amount: bet.amount,
   };
 }
 
@@ -431,15 +472,86 @@ export async function handleResolveMarket({
     return { error: "Outcome not found in this market" };
   }
 
-  await db
-    .update(marketsTable)
-    .set({
-      status: "resolved",
-      resolvedOutcomeId: outcomeId,
-      resolvedBy: user.id,
-      resolvedAt: new Date(),
-    })
-    .where(eq(marketsTable.id, marketId));
+  // Gather bets to calculate payouts
+  const allBets = await db.query.betsTable.findMany({
+    where: eq(betsTable.marketId, marketId),
+  });
+
+  const totalPool = allBets.reduce((sum, b) => sum + b.amount, 0);
+  const winningBets = allBets.filter((b) => b.outcomeId === outcomeId);
+  const winningPool = winningBets.reduce((sum, b) => sum + b.amount, 0);
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(marketsTable)
+      .set({
+        status: "resolved",
+        resolvedOutcomeId: outcomeId,
+        resolvedBy: user.id,
+        resolvedAt: new Date(),
+      })
+      .where(eq(marketsTable.id, marketId));
+
+    // Credit each winner
+    for (const bet of winningBets) {
+      const payout = calculateUserWinnings(bet.amount, winningPool, totalPool);
+      await tx
+        .update(usersTable)
+        .set({ balance: sql`${usersTable.balance} + ${payout}` })
+        .where(eq(usersTable.id, bet.userId));
+    }
+  });
+
+  await broadcastMarketUpdate(marketId);
+
+  return {
+    success: true,
+    market: await getEnrichedMarket(marketId),
+  };
+}
+
+export async function handleArchiveMarket({
+  params,
+  set,
+}: {
+  params: { id: number };
+  set: { status: number };
+}) {
+  const marketId = params.id;
+
+  const market = await db.query.marketsTable.findFirst({
+    where: eq(marketsTable.id, marketId),
+  });
+
+  if (!market) {
+    set.status = 404;
+    return { error: "Market not found" };
+  }
+
+  if (market.status !== "active") {
+    set.status = 400;
+    return { error: "Only active markets can be archived" };
+  }
+
+  // Get all bets to refund
+  const allBets = await db.query.betsTable.findMany({
+    where: eq(betsTable.marketId, marketId),
+  });
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(marketsTable)
+      .set({ status: "archived" })
+      .where(eq(marketsTable.id, marketId));
+
+    // Refund every bettor their original amount
+    for (const bet of allBets) {
+      await tx
+        .update(usersTable)
+        .set({ balance: sql`${usersTable.balance} + ${bet.amount}` })
+        .where(eq(usersTable.id, bet.userId));
+    }
+  });
 
   await broadcastMarketUpdate(marketId);
 

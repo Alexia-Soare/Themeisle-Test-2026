@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import type { ActiveBetSummary, Market, ResolvedBetSummary } from "@/lib/api";
+import type { ActiveBetSummary, ArchivedBetSummary, Market, ResolvedBetSummary } from "@/lib/api";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { Badge } from "@/components/ui/badge";
@@ -18,8 +18,12 @@ function ProfilePage() {
   const [resolvedBets, setResolvedBets] = useState<Array<ResolvedBetSummary>>([]);
   const [isLoadingResolvedBets, setIsLoadingResolvedBets] = useState(true);
   const [resolvedBetsError, setResolvedBetsError] = useState<string | null>(null);
+  const [archivedBets, setArchivedBets] = useState<Array<ArchivedBetSummary>>([]);
+  const [isLoadingArchivedBets, setIsLoadingArchivedBets] = useState(true);
+  const [archivedBetsError, setArchivedBetsError] = useState<string | null>(null);
   const [activePage, setActivePage] = useState(1);
   const [resolvedPage, setResolvedPage] = useState(1);
+  const [archivedPage, setArchivedPage] = useState(1);
 
   const activeTotalPages = Math.max(1, Math.ceil(activeBets.length / ITEMS_PER_PAGE));
   const activeStartIndex = activeBets.length === 0 ? 0 : (activePage - 1) * ITEMS_PER_PAGE;
@@ -37,20 +41,31 @@ function ProfilePage() {
     [resolvedBets, resolvedEndIndex, resolvedStartIndex],
   );
 
+  const archivedTotalPages = Math.max(1, Math.ceil(archivedBets.length / ITEMS_PER_PAGE));
+  const archivedStartIndex = archivedBets.length === 0 ? 0 : (archivedPage - 1) * ITEMS_PER_PAGE;
+  const archivedEndIndex = Math.min(archivedStartIndex + ITEMS_PER_PAGE, archivedBets.length);
+  const paginatedArchivedBets = useMemo(
+    () => archivedBets.slice(archivedStartIndex, archivedEndIndex),
+    [archivedBets, archivedEndIndex, archivedStartIndex],
+  );
+
   const loadProfileBets = useCallback(async (options?: { background?: boolean }) => {
     const isBackground = options?.background === true;
 
     if (!isBackground) {
       setIsLoadingActiveBets(true);
       setIsLoadingResolvedBets(true);
+      setIsLoadingArchivedBets(true);
     }
 
     setActiveBetsError(null);
     setResolvedBetsError(null);
+    setArchivedBetsError(null);
 
-    const [activeBetsResult, resolvedBetsResult] = await Promise.allSettled([
+    const [activeBetsResult, resolvedBetsResult, archivedBetsResult] = await Promise.allSettled([
       api.getActiveBets(),
       api.getResolvedBets(),
+      api.getArchivedBets(),
     ]);
 
     if (activeBetsResult.status === "fulfilled") {
@@ -73,9 +88,20 @@ function ProfilePage() {
       );
     }
 
+    if (archivedBetsResult.status === "fulfilled") {
+      setArchivedBets(archivedBetsResult.value);
+    } else {
+      setArchivedBetsError(
+        archivedBetsResult.reason instanceof Error
+          ? archivedBetsResult.reason.message
+          : "Failed to load archived bets",
+      );
+    }
+
     if (!isBackground) {
       setIsLoadingActiveBets(false);
       setIsLoadingResolvedBets(false);
+      setIsLoadingArchivedBets(false);
     }
   }, []);
 
@@ -122,12 +148,16 @@ function ProfilePage() {
     if (!isAuthenticated) {
       setActiveBets([]);
       setResolvedBets([]);
+      setArchivedBets([]);
       setActiveBetsError(null);
       setResolvedBetsError(null);
+      setArchivedBetsError(null);
       setIsLoadingActiveBets(false);
       setIsLoadingResolvedBets(false);
+      setIsLoadingArchivedBets(false);
       setActivePage(1);
       setResolvedPage(1);
+      setArchivedPage(1);
       return;
     }
 
@@ -141,6 +171,10 @@ function ProfilePage() {
   useEffect(() => {
     setResolvedPage((currentPage) => Math.min(currentPage, resolvedTotalPages));
   }, [resolvedTotalPages]);
+
+  useEffect(() => {
+    setArchivedPage((currentPage) => Math.min(currentPage, archivedTotalPages));
+  }, [archivedTotalPages]);
 
   useEffect(() => {
     if (!isAuthenticated || activeMarketIds.length === 0) {
@@ -303,6 +337,72 @@ function ProfilePage() {
                     </div>
                     <Badge variant={bet.result === "won" ? "default" : "secondary"}>
                       {bet.result === "won" ? "Won" : "Lost"}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="space-y-2">
+            <CardTitle className="text-3xl">Archived Bets</CardTitle>
+            <CardDescription>
+              Bets on cancelled markets. Your original stake was refunded when these markets were archived.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {archivedBetsError && (
+              <div className="rounded-md border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                {archivedBetsError}
+              </div>
+            )}
+
+            {isLoadingArchivedBets ? (
+              <p className="text-sm text-muted-foreground">Loading archived bets...</p>
+            ) : archivedBets.length === 0 ? (
+              <p className="text-sm text-muted-foreground">You do not have any archived bets.</p>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex flex-col gap-3 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
+                  <span>
+                    Showing {archivedStartIndex + 1}-{archivedEndIndex} of {archivedBets.length} archived bets
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setArchivedPage((currentPage) => Math.max(currentPage - 1, 1))}
+                      disabled={archivedPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setArchivedPage((currentPage) => Math.min(currentPage + 1, archivedTotalPages))
+                      }
+                      disabled={archivedPage === archivedTotalPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+
+                {paginatedArchivedBets.map((bet) => (
+                  <div
+                    key={bet.id}
+                    className="flex flex-col gap-3 rounded-none border border-border bg-background p-4 md:flex-row md:items-center md:justify-between"
+                  >
+                    <div className="space-y-1">
+                      <p className="text-base font-semibold text-foreground">{bet.marketTitle}</p>
+                      <p className="text-sm text-muted-foreground">Outcome: {bet.outcomeTitle}</p>
+                      <p className="text-sm text-muted-foreground">Amount: ${bet.amount.toFixed(2)}</p>
+                    </div>
+                    <Badge variant="outline" className="border-amber-300 text-amber-800">
+                      Refunded
                     </Badge>
                   </div>
                 ))}

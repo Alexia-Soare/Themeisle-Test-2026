@@ -1,7 +1,7 @@
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ChevronDownIcon } from "lucide-react";
-import type { Market, MarketStatus } from "@/lib/api";
+import type { Market } from "@/lib/api";
 import { api, marketStatuses } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
@@ -20,12 +20,12 @@ type SortOption = "newest" | "oldest" | "bet_size";
 
 const MARKETS_PER_PAGE = 20;
 
-const marketStatusLabels: Record<MarketStatus, string> = {
+const marketStatusLabels: Record<(typeof marketStatuses)[number], string> = {
   active: "Active Markets",
   resolved: "Resolved Markets",
 };
 
-const emptyStateMessages: Record<MarketStatus, string> = {
+const emptyStateMessages: Record<(typeof marketStatuses)[number], string> = {
   active: "No active markets found. Create one to get started!",
   resolved: "No resolved markets found.",
 };
@@ -51,7 +51,7 @@ function DashboardPage() {
   const [markets, setMarkets] = useState<Array<Market>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<MarketStatus>("active");
+  const [status, setStatus] = useState<(typeof marketStatuses)[number]>("active");
   const [sort, setSort] = useState<SortOption>("newest");
   const [page, setPage] = useState(1);
 
@@ -108,7 +108,7 @@ function DashboardPage() {
     };
   }, [handleMarketUpdate, visibleMarketKey]);
 
-  const handleStatusChange = (nextStatus: MarketStatus) => {
+  const handleStatusChange = (nextStatus: (typeof marketStatuses)[number]) => {
     setStatus(nextStatus);
     setPage(1);
   };
@@ -210,7 +210,7 @@ function DashboardPage() {
 
         {isAdmin && (
           <div className="mb-6 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            Admin mode is enabled. Open any active market to resolve it and set the winning outcome.
+            Admin mode is enabled. Open any active market to resolve it with a winning outcome, or archive it to cancel and refund all bets.
           </div>
         )}
 

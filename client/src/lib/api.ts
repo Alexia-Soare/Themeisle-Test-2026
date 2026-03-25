@@ -2,7 +2,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4001";
 
 export const marketStatuses = ["active", "resolved"] as const;
 
-export type MarketStatus = (typeof marketStatuses)[number];
+export type MarketStatus = (typeof marketStatuses)[number] | "archived";
 
 // Types
 export interface Market {
@@ -28,6 +28,7 @@ export interface User {
   email: string;
   token: string;
   role?: "user" | "admin";
+  balance?: number;
 }
 
 export interface Bet {
@@ -57,6 +58,14 @@ export interface ActiveBetSummary {
   currentOdds: number;
 }
 
+export interface ArchivedBetSummary {
+  id: number;
+  marketId: number;
+  marketTitle: string;
+  outcomeTitle: string;
+  amount: number;
+}
+
 export interface LeaderboardEntry {
   userId: number;
   username: string;
@@ -71,7 +80,7 @@ class ApiClient {
     this.baseUrl = baseUrl;
   }
 
-  private getAuthHeader() {
+  private getAuthHeader(): Record<string, string> {
     const token = localStorage.getItem("auth_token");
     if (!token) return {};
     return { Authorization: `Bearer ${token}` };
@@ -143,6 +152,10 @@ class ApiClient {
     return this.request("/api/auth/me/active-bets");
   }
 
+  async getArchivedBets(): Promise<Array<ArchivedBetSummary>> {
+    return this.request("/api/auth/me/archived-bets");
+  }
+
   async getLeaderboard(): Promise<Array<LeaderboardEntry>> {
     return this.request("/api/markets/leaderboard");
   }
@@ -163,6 +176,12 @@ class ApiClient {
     return this.request(`/api/markets/${marketId}/resolve`, {
       method: "POST",
       body: JSON.stringify({ outcomeId }),
+    });
+  }
+
+  async archiveMarket(marketId: number): Promise<{ success: boolean; market: Market }> {
+    return this.request(`/api/markets/${marketId}/archive`, {
+      method: "POST",
     });
   }
 

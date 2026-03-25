@@ -47,6 +47,7 @@ function MarketDetailPage() {
   const [isBetting, setIsBetting] = useState(false);
   const [resolveOutcomeId, setResolveOutcomeId] = useState<number | null>(null);
   const [isResolving, setIsResolving] = useState(false);
+  const [isArchiving, setIsArchiving] = useState(false);
 
   const marketId = parseInt(id, 10);
   const parsedBetAmount = Number.parseFloat(betAmount);
@@ -150,6 +151,18 @@ function MarketDetailPage() {
     }
   };
 
+  const handleArchiveMarket = async () => {
+    try {
+      setIsArchiving(true);
+      setError(null);
+      await api.archiveMarket(marketId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to archive market");
+    } finally {
+      setIsArchiving(false);
+    }
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -201,8 +214,20 @@ function MarketDetailPage() {
                   <CardDescription className="text-lg mt-2">{market.description}</CardDescription>
                 )}
               </div>
-              <Badge variant={market.status === "active" ? "default" : "secondary"}>
-                {market.status === "active" ? "Active" : "Resolved"}
+              <Badge
+                variant={
+                  market.status === "active"
+                    ? "default"
+                    : market.status === "archived"
+                      ? "outline"
+                      : "secondary"
+                }
+              >
+                {market.status === "active"
+                  ? "Active"
+                  : market.status === "archived"
+                    ? "Archived"
+                    : "Resolved"}
               </Badge>
             </div>
           </CardHeader>
@@ -311,10 +336,10 @@ function MarketDetailPage() {
             {isAdmin && market.status === "active" && (
               <Card className="border-amber-300 bg-amber-50/60">
                 <CardHeader>
-                  <CardTitle>Admin: Resolve Market</CardTitle>
-                  <CardDescription>Select the winning outcome and resolve this market.</CardDescription>
+                  <CardTitle>Admin Controls</CardTitle>
+                  <CardDescription>Resolve the market with a winning outcome, or archive it to cancel and refund all bets.</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <Label>Winning Outcome</Label>
                     <div className="grid gap-2">
@@ -339,9 +364,24 @@ function MarketDetailPage() {
                     variant="destructive"
                     className="w-full"
                     onClick={handleResolveMarket}
-                    disabled={isResolving || !resolveOutcomeId}
+                    disabled={isResolving || isArchiving || !resolveOutcomeId}
                   >
                     {isResolving ? "Resolving market..." : "Resolve Market"}
+                  </Button>
+
+                  <div className="relative flex items-center gap-2">
+                    <div className="flex-1 border-t border-border" />
+                    <span className="text-xs text-muted-foreground">or</span>
+                    <div className="flex-1 border-t border-border" />
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    className="w-full border-amber-400 text-amber-800 hover:bg-amber-100"
+                    onClick={handleArchiveMarket}
+                    disabled={isArchiving || isResolving}
+                  >
+                    {isArchiving ? "Archiving..." : "Archive & Refund All Bets"}
                   </Button>
                 </CardContent>
               </Card>
@@ -391,6 +431,15 @@ function MarketDetailPage() {
               <Card>
                 <CardContent className="py-6">
                   <p className="text-muted-foreground">This market has been resolved.</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {market.status === "archived" && (
+              <Card className="border-amber-300 bg-amber-50/60">
+                <CardContent className="py-6">
+                  <p className="font-medium text-amber-900">This market has been archived.</p>
+                  <p className="text-sm text-amber-700 mt-1">All bets have been refunded to bettors.</p>
                 </CardContent>
               </Card>
             )}

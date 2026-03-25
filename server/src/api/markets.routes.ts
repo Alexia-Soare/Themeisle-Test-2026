@@ -8,6 +8,7 @@ import {
   handleMarketStream,
   handlePlaceBet,
   handleResolveMarket,
+  handleArchiveMarket,
 } from "./handlers";
 
 export const marketRoutes = new Elysia({ prefix: "/api/markets" })
@@ -72,12 +73,18 @@ export const marketRoutes = new Elysia({ prefix: "/api/markets" })
       },
     },
     (app) =>
-      app.post("/:id/resolve", handleResolveMarket, {
-        params: t.Object({
-          id: t.Numeric(),
+      app
+        .post("/:id/resolve", handleResolveMarket, {
+          params: t.Object({
+            id: t.Numeric(),
+          }),
+          body: t.Object({
+            outcomeId: t.Number(),
+          }),
+        })
+        .post("/:id/archive", handleArchiveMarket, {
+          params: t.Object({
+            id: t.Numeric(),
+          }),
         }),
-        body: t.Object({
-          outcomeId: t.Number(),
-        }),
-      }),
   );
