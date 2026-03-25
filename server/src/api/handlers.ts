@@ -120,6 +120,7 @@ export async function handleGetResolvedBets({
       marketTitle: bet.market.title,
       outcomeTitle: bet.outcome.title,
       result: bet.outcomeId === bet.market.resolvedOutcomeId ? "won" : "lost",
+      payout: bet.payout ?? null,
     }));
 }
 
@@ -398,6 +399,15 @@ export async function handlePlaceBet({
     return { error: "Outcome not found" };
   }
 
+  const existingBet = await db.query.betsTable.findFirst({
+    where: and(eq(betsTable.marketId, marketId), eq(betsTable.userId, user.id)),
+  });
+
+  if (existingBet) {
+    set.status = 400;
+    return { error: "You have already placed a bet on this market" };
+  }
+
   const bet = await db.transaction(async (tx) => {
     const [inserted] = await tx
       .insert(betsTable)
@@ -499,6 +509,10 @@ export async function handleResolveMarket({
         .update(usersTable)
         .set({ balance: sql`${usersTable.balance} + ${payout}` })
         .where(eq(usersTable.id, bet.userId));
+      await tx
+        .update(betsTable)
+        .set({ payout })
+        .where(eq(betsTable.id, bet.id));
     }
   });
 

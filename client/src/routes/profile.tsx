@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth-context";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Wallet } from "lucide-react";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -213,6 +214,22 @@ function ProfilePage() {
           Back to Markets
         </Button>
 
+        <Card className="border-green-200 bg-linear-to-r from-green-50 to-emerald-50">
+          <CardContent className="py-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium uppercase tracking-widest text-green-600">Current Balance</p>
+                <p className="mt-2 text-6xl font-bold tracking-tight text-green-700">
+                  ${(user.balance ?? 0).toFixed(2)}
+                </p>
+              </div>
+              <div className="rounded-full bg-green-100 p-5">
+                <Wallet className="h-10 w-10 text-green-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader className="space-y-2">
             <CardTitle className="text-3xl">Active Bets</CardTitle>
@@ -335,9 +352,14 @@ function ProfilePage() {
                       <p className="text-base font-semibold text-foreground">{bet.marketTitle}</p>
                       <p className="text-sm text-muted-foreground">Outcome: {bet.outcomeTitle}</p>
                     </div>
-                    <Badge variant={bet.result === "won" ? "default" : "secondary"}>
-                      {bet.result === "won" ? "Won" : "Lost"}
-                    </Badge>
+                    <div className="flex flex-col items-start gap-1 md:items-end">
+                      <Badge variant={bet.result === "won" ? "default" : "secondary"}>
+                        {bet.result === "won" ? "Won" : "Lost"}
+                      </Badge>
+                      {bet.result === "won" && bet.payout !== null && (
+                        <p className="text-sm font-semibold text-green-700">+${bet.payout.toFixed(2)}</p>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

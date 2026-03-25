@@ -94,6 +94,7 @@ export const betsTable = sqliteTable(
       .notNull()
       .references(() => marketOutcomesTable.id),
     amount: real("amount").notNull(),
+    payout: real("payout"),
     createdAt: integer("created_at", { mode: "timestamp" })
       .notNull()
       .$defaultFn(() => new Date()),

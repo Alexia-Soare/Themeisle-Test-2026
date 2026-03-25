@@ -46,6 +46,7 @@ export interface ResolvedBetSummary {
   marketTitle: string;
   outcomeTitle: string;
   result: "won" | "lost";
+  payout: number | null;
 }
 
 export interface ActiveBetSummary {
