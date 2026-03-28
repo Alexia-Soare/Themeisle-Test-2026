@@ -7,6 +7,7 @@ interface AuthContextType {
   login: (user: User) => void;
   logout: () => void;
   isAuthenticated: boolean;
+  refreshUserBalance: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -65,6 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         username: newUser.username,
         email: newUser.email,
         role: newUser.role,
+        balance: newUser.balance,
       }),
     );
   };
@@ -75,6 +77,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem("auth_user");
   };
 
+  const refreshUserBalance = async () => {
+    try {
+      const serverUser = await api.getMe();
+      setUser((currentUser) => (currentUser ? { ...currentUser, balance: serverUser.balance } : null));
+      // Also update localStorage
+      const userData = localStorage.getItem("auth_user");
+      if (userData) {
+        const parsed = JSON.parse(userData);
+        localStorage.setItem(
+          "auth_user",
+          JSON.stringify({ ...parsed, balance: serverUser.balance }),
+        );
+      }
+    } catch (error) {
+      console.error("Failed to refresh user balance:", error);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -83,6 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         login,
         logout,
         isAuthenticated: !!user,
+        refreshUserBalance,
       }}
     >
       {children}

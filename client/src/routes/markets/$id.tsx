@@ -38,7 +38,7 @@ function formatChance(chancePercent: number): string {
 function MarketDetailPage() {
   const { id } = useParams({ from: "/markets/$id" });
   const navigate = useNavigate();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, refreshUserBalance } = useAuth();
   const [market, setMarket] = useState<Market | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -126,6 +126,7 @@ function MarketDetailPage() {
       setIsBetting(true);
       setError(null);
       await api.placeBet(marketId, selectedOutcomeId, parsedBetAmount);
+      await refreshUserBalance();
       setBetAmount("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to place bet");
@@ -144,6 +145,7 @@ function MarketDetailPage() {
       setIsResolving(true);
       setError(null);
       await api.resolveMarket(marketId, resolveOutcomeId);
+      await refreshUserBalance();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to resolve market");
     } finally {
@@ -156,6 +158,7 @@ function MarketDetailPage() {
       setIsArchiving(true);
       setError(null);
       await api.archiveMarket(marketId);
+      await refreshUserBalance();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to archive market");
     } finally {
