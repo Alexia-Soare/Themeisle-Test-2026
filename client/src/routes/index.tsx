@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useMemo, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useState, useRef } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ChevronDownIcon } from "lucide-react";
 import type { Market } from "@/lib/api";
@@ -23,11 +23,13 @@ const MARKETS_PER_PAGE = 20;
 const marketStatusLabels: Record<(typeof marketStatuses)[number], string> = {
   active: "Active Markets",
   resolved: "Resolved Markets",
+  archived: "Archived Markets",
 };
 
 const emptyStateMessages: Record<(typeof marketStatuses)[number], string> = {
   active: "No active markets found. Create one to get started!",
   resolved: "No resolved markets found.",
+  archived: "No archived markets found.",
 };
 
 function sortMarkets(markets: Array<Market>, sort: SortOption): Array<Market> {
@@ -59,11 +61,8 @@ function DashboardPage() {
     () => sortMarkets(markets, sort),
     [markets, sort],
   );
-  const totalMarkets = sortedMarkets.length;
-  const totalPages = Math.max(1, Math.ceil(totalMarkets / MARKETS_PER_PAGE));
-  const startIndex = totalMarkets === 0 ? 0 : (page - 1) * MARKETS_PER_PAGE;
-  const endIndex = Math.min(startIndex + MARKETS_PER_PAGE, totalMarkets);
-  const paginatedMarkets = sortedMarkets.slice(startIndex, endIndex);
+  const totalPages = 999; // Server doesn't return total yet, use large number
+  const paginatedMarkets = sortedMarkets;
   const visibleMarketIds = paginatedMarkets.map((market) => market.id);
   const visibleMarketKey = visibleMarketIds.join(",");
 
@@ -73,11 +72,14 @@ function DashboardPage() {
     );
   });
 
-  const loadMarkets = async (nextStatus = status) => {
+  const subscriptionRef = useRef<(() => void)[]>([]);
+
+  const loadMarkets = async (nextStatus = status, nextPage = page) => {
     try {
       setIsLoading(true);
       setError(null);
-      const data = await api.listMarkets(nextStatus);
+      const offset = (nextPage - 1) * MARKETS_PER_PAGE;
+      const data = await api.listMarkets(nextStatus, MARKETS_PER_PAGE, offset);
       setMarkets(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load markets");
@@ -87,24 +89,26 @@ function DashboardPage() {
   };
 
   useEffect(() => {
-    loadMarkets();
-  }, [status]);
-
-  useEffect(() => {
-    setPage((currentPage) => Math.min(currentPage, totalPages));
-  }, [totalPages]);
+    loadMarkets(status, page);
+  }, [status, page]);
 
   useEffect(() => {
     if (visibleMarketIds.length === 0) {
+      subscriptionRef.current.forEach((unsubscribe) => unsubscribe());
+      subscriptionRef.current = [];
       return;
     }
 
-    const unsubscribeHandlers = visibleMarketIds.map((marketId) =>
-      api.subscribeToMarketUpdates(marketId, handleMarketUpdate),
-    );
+    const timeoutId = setTimeout(() => {
+      subscriptionRef.current.forEach((unsubscribe) => unsubscribe());
+
+      subscriptionRef.current = visibleMarketIds.map((marketId) =>
+        api.subscribeToMarketUpdates(marketId, handleMarketUpdate),
+      );
+    }, 300);
 
     return () => {
-      unsubscribeHandlers.forEach((unsubscribe) => unsubscribe());
+      clearTimeout(timeoutId);
     };
   }, [handleMarketUpdate, visibleMarketKey]);
 
@@ -186,14 +190,12 @@ function DashboardPage() {
               {marketStatusLabels[marketStatus]}
             </Button>
           ))}
-          <Button variant="outline" onClick={() => loadMarkets()} disabled={isLoading}>
+          <Button variant="outline" onClick={() => loadMarkets(status, page)} disabled={isLoading}>
             {isLoading ? "Refreshing..." : "Refresh"}
           </Button>
 
           <div className="ml-auto flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">
-              Showing {totalMarkets === 0 ? 0 : startIndex + 1}-{endIndex} of {totalMarkets} markets
-            </span>
+            <span className="text-sm text-muted-foreground">Page {page}</span>
             <span className="text-sm text-foreground">Sort by:</span>
             <Select value={sort} onValueChange={handleSortChange}>
               <SelectTrigger className="w-45 border-border! bg-background! text-foreground! hover:bg-muted!">
@@ -255,8 +257,8 @@ function DashboardPage() {
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => setPage((currentPage) => Math.min(currentPage + 1, totalPages))}
-                  disabled={page === totalPages}
+                  onClick={() => setPage((currentPage) => currentPage + 1)}
+                  disabled={paginatedMarkets.length < MARKETS_PER_PAGE}
                 >
                   Next
                 </Button>

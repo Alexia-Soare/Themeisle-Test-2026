@@ -70,7 +70,11 @@ async function enrichMarket(market: MarketQueryResult): Promise<EnrichedMarket> 
   };
 }
 
-export async function listEnrichedMarkets(status: MarketStatus): Promise<Array<EnrichedMarket>> {
+export async function listEnrichedMarkets(
+  status: MarketStatus,
+  limit: number = 20,
+  offset: number = 0,
+): Promise<Array<EnrichedMarket>> {
   const markets = await db.query.marketsTable.findMany({
     where: eq(marketsTable.status, status),
     with: {
@@ -81,6 +85,8 @@ export async function listEnrichedMarkets(status: MarketStatus): Promise<Array<E
         orderBy: (outcomes, { asc }) => asc(outcomes.position),
       },
     },
+    limit,
+    offset,
   });
 
   return Promise.all(markets.map((market) => enrichMarket(market as MarketQueryResult)));

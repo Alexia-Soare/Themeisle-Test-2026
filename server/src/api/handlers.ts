@@ -306,9 +306,15 @@ export async function handleCreateMarket({
   };
 }
 
-export async function handleListMarkets({ query }: { query: { status?: MarketStatus } }) {
+export async function handleListMarkets({
+  query,
+}: {
+  query: { status?: MarketStatus; limit?: number; offset?: number };
+}) {
   const statusFilter = query.status ?? "active";
-  return listEnrichedMarkets(statusFilter);
+  const limit = query.limit ?? 20;
+  const offset = query.offset ?? 0;
+  return listEnrichedMarkets(statusFilter, limit, offset);
 }
 
 export async function handleGetMarket({

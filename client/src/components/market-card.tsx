@@ -1,3 +1,4 @@
+import React from "react";
 import { Market } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +9,7 @@ interface MarketCardProps {
   market: Market;
 }
 
-export function MarketCard({ market }: MarketCardProps) {
+function MarketCardComponent({ market }: MarketCardProps) {
   const navigate = useNavigate();
 
   const handleCardClick = () => {
@@ -82,7 +83,13 @@ export function MarketCard({ market }: MarketCardProps) {
           </div>
 
           {/* Action Button */}
-          <Button className="w-full" onClick={(e) => e.stopPropagation()}>
+          <Button
+            className="w-full cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate({ to: `/markets/${market.id}` });
+            }}
+          >
             {market.status === "active"
               ? "Place Bet"
               : market.status === "archived"
@@ -94,3 +101,5 @@ export function MarketCard({ market }: MarketCardProps) {
     </Card>
   );
 }
+
+export const MarketCard = React.memo(MarketCardComponent);

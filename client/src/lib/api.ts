@@ -1,8 +1,8 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4001";
 
-export const marketStatuses = ["active", "resolved"] as const;
+export const marketStatuses = ["active", "resolved", "archived"] as const;
 
-export type MarketStatus = (typeof marketStatuses)[number] | "archived";
+export type MarketStatus = (typeof marketStatuses)[number];
 
 // Types
 export interface Market {
@@ -162,8 +162,8 @@ class ApiClient {
   }
 
   // Markets endpoints
-  async listMarkets(status: MarketStatus = "active"): Promise<Array<Market>> {
-    return this.request(`/api/markets?status=${status}`);
+  async listMarkets(status: MarketStatus = "active", limit = 20, offset = 0): Promise<Array<Market>> {
+    return this.request(`/api/markets?status=${status}&limit=${limit}&offset=${offset}`);
   }
 
   async getMarket(id: number): Promise<Market> {
