@@ -61,7 +61,7 @@ function DashboardPage() {
     () => sortMarkets(markets, sort),
     [markets, sort],
   );
-  const totalPages = 999; // Server doesn't return total yet, use large number
+  //const totalPages = 999; // Server doesn't return total yet, use large number
   const paginatedMarkets = sortedMarkets;
   const visibleMarketIds = paginatedMarkets.map((market) => market.id);
   const visibleMarketKey = visibleMarketIds.join(",");
