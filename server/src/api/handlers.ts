@@ -100,9 +100,14 @@ export async function handleLogin({
 
 export async function handleGetResolvedBets({
   user,
+  query,
 }: {
   user: typeof usersTable.$inferSelect;
+  query: { limit?: number; offset?: number };
 }) {
+  const limit = query.limit ?? 20;
+  const offset = query.offset ?? 0;
+
   const bets = await db.query.betsTable.findMany({
     where: eq(betsTable.userId, user.id),
     with: {
@@ -111,24 +116,30 @@ export async function handleGetResolvedBets({
     },
   });
 
-  return bets
+  const filtered = bets
     .filter((bet) => bet.market.status === "resolved" && bet.market.resolvedOutcomeId !== null)
-    .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
-    .map((bet) => ({
-      id: bet.id,
-      marketId: bet.marketId,
-      marketTitle: bet.market.title,
-      outcomeTitle: bet.outcome.title,
-      result: bet.outcomeId === bet.market.resolvedOutcomeId ? "won" : "lost",
-      payout: bet.payout ?? null,
-    }));
+    .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime());
+
+  return filtered.slice(offset, offset + limit).map((bet) => ({
+    id: bet.id,
+    marketId: bet.marketId,
+    marketTitle: bet.market.title,
+    outcomeTitle: bet.outcome.title,
+    result: bet.outcomeId === bet.market.resolvedOutcomeId ? "won" : "lost",
+    payout: bet.payout ?? null,
+  }));
 }
 
 export async function handleGetArchivedBets({
   user,
+  query,
 }: {
   user: typeof usersTable.$inferSelect;
+  query: { limit?: number; offset?: number };
 }) {
+  const limit = query.limit ?? 20;
+  const offset = query.offset ?? 0;
+
   const bets = await db.query.betsTable.findMany({
     where: eq(betsTable.userId, user.id),
     with: {
@@ -137,23 +148,29 @@ export async function handleGetArchivedBets({
     },
   });
 
-  return bets
+  const filtered = bets
     .filter((bet) => bet.market.status === "archived")
-    .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
-    .map((bet) => ({
-      id: bet.id,
-      marketId: bet.marketId,
-      marketTitle: bet.market.title,
-      outcomeTitle: bet.outcome.title,
-      amount: bet.amount,
-    }));
+    .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime());
+
+  return filtered.slice(offset, offset + limit).map((bet) => ({
+    id: bet.id,
+    marketId: bet.marketId,
+    marketTitle: bet.market.title,
+    outcomeTitle: bet.outcome.title,
+    amount: bet.amount,
+  }));
 }
 
 export async function handleGetActiveBets({
   user,
+  query,
 }: {
   user: typeof usersTable.$inferSelect;
+  query: { limit?: number; offset?: number };
 }) {
+  const limit = query.limit ?? 20;
+  const offset = query.offset ?? 0;
+
   const bets = await db.query.betsTable.findMany({
     where: eq(betsTable.userId, user.id),
     with: {
@@ -170,22 +187,22 @@ export async function handleGetActiveBets({
   );
   const enrichedMarketMap = new Map(enrichedMarkets);
 
-  return activeBets
-    .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
-    .map((bet) => {
-      const market = enrichedMarketMap.get(bet.marketId);
-      const selectedOutcome = market?.outcomes.find((outcome) => outcome.id === bet.outcomeId);
+  const filtered = activeBets.sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime());
 
-      return {
-        id: bet.id,
-        marketId: bet.marketId,
-        marketTitle: bet.market.title,
-        outcomeId: bet.outcomeId,
-        outcomeTitle: bet.outcome.title,
-        amount: bet.amount,
-        currentOdds: selectedOutcome?.odds ?? 0,
-      };
-    });
+  return filtered.slice(offset, offset + limit).map((bet) => {
+    const market = enrichedMarketMap.get(bet.marketId);
+    const selectedOutcome = market?.outcomes.find((outcome) => outcome.id === bet.outcomeId);
+
+    return {
+      id: bet.id,
+      marketId: bet.marketId,
+      marketTitle: bet.market.title,
+      outcomeId: bet.outcomeId,
+      outcomeTitle: bet.outcome.title,
+      amount: bet.amount,
+      currentOdds: selectedOutcome?.odds ?? 0,
+    };
+  });
 }
 
 export async function handleGetLeaderboard() {

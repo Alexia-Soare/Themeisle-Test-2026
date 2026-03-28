@@ -35,7 +35,22 @@ export const authRoutes = new Elysia({ prefix: "/api/auth" })
           role: user!.role,
           balance: user!.balance,
         }))
-        .get("/me/resolved-bets", handleGetResolvedBets as any)
-        .get("/me/active-bets", handleGetActiveBets as any)
-        .get("/me/archived-bets", handleGetArchivedBets as any),
+        .get("/me/resolved-bets", handleGetResolvedBets as any, {
+          query: t.Object({
+            limit: t.Optional(t.Numeric({ default: 20 })),
+            offset: t.Optional(t.Numeric({ default: 0 })),
+          }),
+        })
+        .get("/me/active-bets", handleGetActiveBets as any, {
+          query: t.Object({
+            limit: t.Optional(t.Numeric({ default: 20 })),
+            offset: t.Optional(t.Numeric({ default: 0 })),
+          }),
+        })
+        .get("/me/archived-bets", handleGetArchivedBets as any, {
+          query: t.Object({
+            limit: t.Optional(t.Numeric({ default: 20 })),
+            offset: t.Optional(t.Numeric({ default: 0 })),
+          }),
+        }),
   );

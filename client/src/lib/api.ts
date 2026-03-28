@@ -145,16 +145,16 @@ class ApiClient {
     return this.request("/api/auth/me");
   }
 
-  async getResolvedBets(): Promise<Array<ResolvedBetSummary>> {
-    return this.request("/api/auth/me/resolved-bets");
+  async getResolvedBets(limit = 20, offset = 0): Promise<Array<ResolvedBetSummary>> {
+    return this.request(`/api/auth/me/resolved-bets?limit=${limit}&offset=${offset}`);
   }
 
-  async getActiveBets(): Promise<Array<ActiveBetSummary>> {
-    return this.request("/api/auth/me/active-bets");
+  async getActiveBets(limit = 20, offset = 0): Promise<Array<ActiveBetSummary>> {
+    return this.request(`/api/auth/me/active-bets?limit=${limit}&offset=${offset}`);
   }
 
-  async getArchivedBets(): Promise<Array<ArchivedBetSummary>> {
-    return this.request("/api/auth/me/archived-bets");
+  async getArchivedBets(limit = 20, offset = 0): Promise<Array<ArchivedBetSummary>> {
+    return this.request(`/api/auth/me/archived-bets?limit=${limit}&offset=${offset}`);
   }
 
   async getLeaderboard(): Promise<Array<LeaderboardEntry>> {

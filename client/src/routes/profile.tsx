@@ -8,66 +8,42 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Wallet } from "lucide-react";
 
-const ITEMS_PER_PAGE = 20;
+  const ITEMS_PER_PAGE = 20;
 
-function ProfilePage() {
-  const navigate = useNavigate();
-  const { isAuthenticated, user } = useAuth();
-  const [activeBets, setActiveBets] = useState<Array<ActiveBetSummary>>([]);
-  const [isLoadingActiveBets, setIsLoadingActiveBets] = useState(true);
-  const [activeBetsError, setActiveBetsError] = useState<string | null>(null);
-  const [resolvedBets, setResolvedBets] = useState<Array<ResolvedBetSummary>>([]);
-  const [isLoadingResolvedBets, setIsLoadingResolvedBets] = useState(true);
-  const [resolvedBetsError, setResolvedBetsError] = useState<string | null>(null);
-  const [archivedBets, setArchivedBets] = useState<Array<ArchivedBetSummary>>([]);
-  const [isLoadingArchivedBets, setIsLoadingArchivedBets] = useState(true);
-  const [archivedBetsError, setArchivedBetsError] = useState<string | null>(null);
-  const [activePage, setActivePage] = useState(1);
-  const [resolvedPage, setResolvedPage] = useState(1);
-  const [archivedPage, setArchivedPage] = useState(1);
+  function ProfilePage() {
+    const navigate = useNavigate();
+    const { isAuthenticated, user } = useAuth();
+    const [activeBets, setActiveBets] = useState<Array<ActiveBetSummary>>([]);
+    const [isLoadingActiveBets, setIsLoadingActiveBets] = useState(true);
+    const [activeBetsError, setActiveBetsError] = useState<string | null>(null);
+    const [resolvedBets, setResolvedBets] = useState<Array<ResolvedBetSummary>>([]);
+    const [isLoadingResolvedBets, setIsLoadingResolvedBets] = useState(true);
+    const [resolvedBetsError, setResolvedBetsError] = useState<string | null>(null);
+    const [archivedBets, setArchivedBets] = useState<Array<ArchivedBetSummary>>([]);
+    const [isLoadingArchivedBets, setIsLoadingArchivedBets] = useState(true);
+    const [archivedBetsError, setArchivedBetsError] = useState<string | null>(null);
+    const [activePage, setActivePage] = useState(1);
+    const [resolvedPage, setResolvedPage] = useState(1);
+    const [archivedPage, setArchivedPage] = useState(1);
 
-  const activeTotalPages = Math.max(1, Math.ceil(activeBets.length / ITEMS_PER_PAGE));
-  const activeStartIndex = activeBets.length === 0 ? 0 : (activePage - 1) * ITEMS_PER_PAGE;
-  const activeEndIndex = Math.min(activeStartIndex + ITEMS_PER_PAGE, activeBets.length);
-  const paginatedActiveBets = useMemo(
-    () => activeBets.slice(activeStartIndex, activeEndIndex),
-    [activeBets, activeEndIndex, activeStartIndex],
-  );
+    const loadProfileBets = useCallback(async (options?: { background?: boolean }) => {
+      const isBackground = options?.background === true;
 
-  const resolvedTotalPages = Math.max(1, Math.ceil(resolvedBets.length / ITEMS_PER_PAGE));
-  const resolvedStartIndex = resolvedBets.length === 0 ? 0 : (resolvedPage - 1) * ITEMS_PER_PAGE;
-  const resolvedEndIndex = Math.min(resolvedStartIndex + ITEMS_PER_PAGE, resolvedBets.length);
-  const paginatedResolvedBets = useMemo(
-    () => resolvedBets.slice(resolvedStartIndex, resolvedEndIndex),
-    [resolvedBets, resolvedEndIndex, resolvedStartIndex],
-  );
+      if (!isBackground) {
+        setIsLoadingActiveBets(true);
+        setIsLoadingResolvedBets(true);
+        setIsLoadingArchivedBets(true);
+      }
 
-  const archivedTotalPages = Math.max(1, Math.ceil(archivedBets.length / ITEMS_PER_PAGE));
-  const archivedStartIndex = archivedBets.length === 0 ? 0 : (archivedPage - 1) * ITEMS_PER_PAGE;
-  const archivedEndIndex = Math.min(archivedStartIndex + ITEMS_PER_PAGE, archivedBets.length);
-  const paginatedArchivedBets = useMemo(
-    () => archivedBets.slice(archivedStartIndex, archivedEndIndex),
-    [archivedBets, archivedEndIndex, archivedStartIndex],
-  );
+      setActiveBetsError(null);
+      setResolvedBetsError(null);
+      setArchivedBetsError(null);
 
-  const loadProfileBets = useCallback(async (options?: { background?: boolean }) => {
-    const isBackground = options?.background === true;
-
-    if (!isBackground) {
-      setIsLoadingActiveBets(true);
-      setIsLoadingResolvedBets(true);
-      setIsLoadingArchivedBets(true);
-    }
-
-    setActiveBetsError(null);
-    setResolvedBetsError(null);
-    setArchivedBetsError(null);
-
-    const [activeBetsResult, resolvedBetsResult, archivedBetsResult] = await Promise.allSettled([
-      api.getActiveBets(),
-      api.getResolvedBets(),
-      api.getArchivedBets(),
-    ]);
+      const [activeBetsResult, resolvedBetsResult, archivedBetsResult] = await Promise.allSettled([
+        api.getActiveBets(ITEMS_PER_PAGE, (activePage - 1) * ITEMS_PER_PAGE),
+        api.getResolvedBets(ITEMS_PER_PAGE, (resolvedPage - 1) * ITEMS_PER_PAGE),
+        api.getArchivedBets(ITEMS_PER_PAGE, (archivedPage - 1) * ITEMS_PER_PAGE),
+      ]);
 
     if (activeBetsResult.status === "fulfilled") {
       setActiveBets(activeBetsResult.value);
@@ -104,7 +80,7 @@ function ProfilePage() {
       setIsLoadingResolvedBets(false);
       setIsLoadingArchivedBets(false);
     }
-  }, []);
+  }, [activePage, resolvedPage, archivedPage]);
 
   const handleMarketUpdate = useCallback((updatedMarket: Market) => {
     if (updatedMarket.status !== "active") {
@@ -163,19 +139,7 @@ function ProfilePage() {
     }
 
     void loadProfileBets();
-  }, [isAuthenticated, loadProfileBets]);
-
-  useEffect(() => {
-    setActivePage((currentPage) => Math.min(currentPage, activeTotalPages));
-  }, [activeTotalPages]);
-
-  useEffect(() => {
-    setResolvedPage((currentPage) => Math.min(currentPage, resolvedTotalPages));
-  }, [resolvedTotalPages]);
-
-  useEffect(() => {
-    setArchivedPage((currentPage) => Math.min(currentPage, archivedTotalPages));
-  }, [archivedTotalPages]);
+  }, [isAuthenticated, activePage, resolvedPage, archivedPage, loadProfileBets]);
 
   useEffect(() => {
     if (!isAuthenticated || activeMarketIds.length === 0) {
@@ -190,6 +154,18 @@ function ProfilePage() {
       unsubscribeHandlers.forEach((unsubscribe) => unsubscribe());
     };
   }, [activeMarketIdsKey, activeMarketIds, handleMarketUpdate, isAuthenticated]);
+
+  const activeStartIndex = 0;
+  const activeEndIndex = activeBets.length;
+  const paginatedActiveBets = activeBets;
+
+  const resolvedStartIndex = 0;
+  const resolvedEndIndex = resolvedBets.length;
+  const paginatedResolvedBets = resolvedBets;
+
+  const archivedStartIndex = 0;
+  const archivedEndIndex = archivedBets.length;
+  const paginatedArchivedBets = archivedBets;
 
   if (!isAuthenticated || !user) {
     return (
@@ -252,7 +228,7 @@ function ProfilePage() {
               <div className="space-y-4">
                 <div className="flex flex-col gap-3 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
                   <span>
-                    Showing {activeStartIndex + 1}-{activeEndIndex} of {activeBets.length} active bets
+                    Showing {activeBets.length === 0 ? 0 : activeStartIndex + 1}-{activeEndIndex} active bets
                   </span>
                   <div className="flex items-center gap-2">
                     <Button
@@ -266,10 +242,8 @@ function ProfilePage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() =>
-                        setActivePage((currentPage) => Math.min(currentPage + 1, activeTotalPages))
-                      }
-                      disabled={activePage === activeTotalPages}
+                      onClick={() => setActivePage((currentPage) => currentPage + 1)}
+                      disabled={activeBets.length < ITEMS_PER_PAGE}
                     >
                       Next
                     </Button>
@@ -319,7 +293,7 @@ function ProfilePage() {
               <div className="space-y-4">
                 <div className="flex flex-col gap-3 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
                   <span>
-                    Showing {resolvedStartIndex + 1}-{resolvedEndIndex} of {resolvedBets.length} resolved bets
+                    Showing {resolvedBets.length === 0 ? 0 : resolvedStartIndex + 1}-{resolvedEndIndex} resolved bets
                   </span>
                   <div className="flex items-center gap-2">
                     <Button
@@ -334,9 +308,9 @@ function ProfilePage() {
                       variant="outline"
                       size="sm"
                       onClick={() =>
-                        setResolvedPage((currentPage) => Math.min(currentPage + 1, resolvedTotalPages))
+                        setResolvedPage((currentPage) => currentPage + 1)
                       }
-                      disabled={resolvedPage === resolvedTotalPages}
+                      disabled={resolvedBets.length < ITEMS_PER_PAGE}
                     >
                       Next
                     </Button>
@@ -389,7 +363,7 @@ function ProfilePage() {
               <div className="space-y-4">
                 <div className="flex flex-col gap-3 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
                   <span>
-                    Showing {archivedStartIndex + 1}-{archivedEndIndex} of {archivedBets.length} archived bets
+                    Showing {archivedBets.length === 0 ? 0 : archivedStartIndex + 1}-{archivedEndIndex} archived bets
                   </span>
                   <div className="flex items-center gap-2">
                     <Button
@@ -404,9 +378,9 @@ function ProfilePage() {
                       variant="outline"
                       size="sm"
                       onClick={() =>
-                        setArchivedPage((currentPage) => Math.min(currentPage + 1, archivedTotalPages))
+                        setArchivedPage((currentPage) => currentPage + 1)
                       }
-                      disabled={archivedPage === archivedTotalPages}
+                      disabled={archivedBets.length < ITEMS_PER_PAGE}
                     >
                       Next
                     </Button>
