@@ -109,6 +109,8 @@ function DashboardPage() {
 
     return () => {
       clearTimeout(timeoutId);
+      subscriptionRef.current.forEach((unsubscribe) => unsubscribe());
+      subscriptionRef.current = [];
     };
   }, [handleMarketUpdate, visibleMarketKey]);
 
