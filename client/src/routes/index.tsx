@@ -183,7 +183,7 @@ function DashboardPage() {
         </div>
 
         <div className="mb-6 flex flex-wrap items-center gap-4">
-          {marketStatuses.map((marketStatus) => (
+          {marketStatuses.filter((s) => isAdmin || s !== "archived").map((marketStatus) => (
             <Button
               key={marketStatus}
               variant={status === marketStatus ? "default" : "outline"}

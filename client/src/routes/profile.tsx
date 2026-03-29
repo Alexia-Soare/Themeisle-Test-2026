@@ -13,6 +13,7 @@ import { Wallet } from "lucide-react";
   function ProfilePage() {
     const navigate = useNavigate();
     const { isAuthenticated, user } = useAuth();
+    const isAdmin = user?.role === "admin";
     const [activeBets, setActiveBets] = useState<Array<ActiveBetSummary>>([]);
     const [isLoadingActiveBets, setIsLoadingActiveBets] = useState(true);
     const [activeBetsError, setActiveBetsError] = useState<string | null>(null);
@@ -42,7 +43,7 @@ import { Wallet } from "lucide-react";
       const [activeBetsResult, resolvedBetsResult, archivedBetsResult] = await Promise.allSettled([
         api.getActiveBets(ITEMS_PER_PAGE, (activePage - 1) * ITEMS_PER_PAGE),
         api.getResolvedBets(ITEMS_PER_PAGE, (resolvedPage - 1) * ITEMS_PER_PAGE),
-        api.getArchivedBets(ITEMS_PER_PAGE, (archivedPage - 1) * ITEMS_PER_PAGE),
+        isAdmin ? api.getArchivedBets(ITEMS_PER_PAGE, (archivedPage - 1) * ITEMS_PER_PAGE) : Promise.resolve([]),
       ]);
 
     if (activeBetsResult.status === "fulfilled") {
@@ -80,7 +81,7 @@ import { Wallet } from "lucide-react";
       setIsLoadingResolvedBets(false);
       setIsLoadingArchivedBets(false);
     }
-  }, [activePage, resolvedPage, archivedPage]);
+  }, [activePage, resolvedPage, archivedPage, isAdmin]);
 
   const handleMarketUpdate = useCallback((updatedMarket: Market) => {
     if (updatedMarket.status !== "active") {
@@ -341,6 +342,7 @@ import { Wallet } from "lucide-react";
           </CardContent>
         </Card>
 
+        {isAdmin && (
         <Card>
           <CardHeader className="space-y-2">
             <CardTitle className="text-3xl">Archived Bets</CardTitle>
@@ -406,6 +408,7 @@ import { Wallet } from "lucide-react";
             )}
           </CardContent>
         </Card>
+        )}
 
         <Card>
           <CardHeader className="space-y-2">
