@@ -597,3 +597,28 @@ export async function handleArchiveMarket({
     market: await getEnrichedMarket(marketId),
   };
 }
+
+export async function handleGetApiKey({ user }: { user: typeof usersTable.$inferSelect }) {
+  return { apiKey: user.apiKey ?? null };
+}
+
+export async function handleGenerateApiKey({ user }: { user: typeof usersTable.$inferSelect }) {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  const apiKey = "pm_" + Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+
+  await db.update(usersTable).set({ apiKey, updatedAt: new Date() }).where(eq(usersTable.id, user.id));
+
+  return { apiKey };
+}
+
+export async function handleRevokeApiKey({
+  user,
+  set,
+}: {
+  user: typeof usersTable.$inferSelect;
+  set: { status: number };
+}) {
+  await db.update(usersTable).set({ apiKey: null, updatedAt: new Date() }).where(eq(usersTable.id, user.id));
+  set.status = 204;
+}

@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth-context";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Wallet } from "lucide-react";
+import { Wallet, Eye, EyeOff, Copy } from "lucide-react";
 
   const ITEMS_PER_PAGE = 20;
 
@@ -26,6 +26,12 @@ import { Wallet } from "lucide-react";
     const [activePage, setActivePage] = useState(1);
     const [resolvedPage, setResolvedPage] = useState(1);
     const [archivedPage, setArchivedPage] = useState(1);
+    const [apiKey, setApiKey] = useState<string | null>(null);
+    const [isLoadingApiKey, setIsLoadingApiKey] = useState(true);
+    const [apiKeyError, setApiKeyError] = useState<string | null>(null);
+    const [showApiKey, setShowApiKey] = useState(false);
+    const [isCopied, setIsCopied] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false);
 
     const loadProfileBets = useCallback(async (options?: { background?: boolean }) => {
       const isBackground = options?.background === true;
@@ -155,6 +161,50 @@ import { Wallet } from "lucide-react";
       unsubscribeHandlers.forEach((unsubscribe) => unsubscribe());
     };
   }, [activeMarketIdsKey, activeMarketIds, handleMarketUpdate, isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setApiKey(null);
+      setIsLoadingApiKey(false);
+      return;
+    }
+    setIsLoadingApiKey(true);
+    api.getApiKey()
+      .then(({ apiKey }) => setApiKey(apiKey))
+      .catch(() => setApiKeyError("Failed to load API key"))
+      .finally(() => setIsLoadingApiKey(false));
+  }, [isAuthenticated]);
+
+  const handleGenerateApiKey = async () => {
+    setIsGenerating(true);
+    setApiKeyError(null);
+    try {
+      const { apiKey: newKey } = await api.generateApiKey();
+      setApiKey(newKey);
+      setShowApiKey(true);
+    } catch {
+      setApiKeyError("Failed to generate API key");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleRevokeApiKey = async () => {
+    try {
+      await api.revokeApiKey();
+      setApiKey(null);
+      setShowApiKey(false);
+    } catch {
+      setApiKeyError("Failed to revoke API key");
+    }
+  };
+
+  const handleCopyApiKey = async () => {
+    if (!apiKey) return;
+    await navigator.clipboard.writeText(apiKey);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
+  };
 
   const activeStartIndex = 0;
   const activeEndIndex = activeBets.length;
@@ -430,6 +480,58 @@ import { Wallet } from "lucide-react";
                 <p className="text-lg font-semibold text-foreground">#{user.id}</p>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="space-y-2">
+            <CardTitle className="text-3xl">API Key</CardTitle>
+            <CardDescription>
+              Use this key to place bets and interact with the API programmatically.
+              Pass it as the <code className="font-mono text-xs">X-Api-Key</code> header.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {apiKeyError && (
+              <div className="rounded-md border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                {apiKeyError}
+              </div>
+            )}
+            {isLoadingApiKey ? (
+              <p className="text-sm text-muted-foreground">Loading...</p>
+            ) : apiKey ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 rounded-none border border-border bg-muted px-3 py-2 text-sm font-mono break-all">
+                    {showApiKey ? apiKey : "pm_" + "•".repeat(44)}
+                  </code>
+                  <Button variant="outline" size="sm" onClick={() => setShowApiKey((v) => !v)}>
+                    {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleCopyApiKey}>
+                    {isCopied ? "Copied!" : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={handleGenerateApiKey} disabled={isGenerating}>
+                    {isGenerating ? "Regenerating..." : "Regenerate"}
+                  </Button>
+                  <Button variant="destructive" onClick={handleRevokeApiKey}>
+                    Revoke
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground break-all">
+                  Example: <code className="font-mono">curl -H "X-Api-Key: {"<your-key>"}" {window.location.origin}/api/markets/</code>
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">No API key generated yet.</p>
+                <Button onClick={handleGenerateApiKey} disabled={isGenerating}>
+                  {isGenerating ? "Generating..." : "Generate API Key"}
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

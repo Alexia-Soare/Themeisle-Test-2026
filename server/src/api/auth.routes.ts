@@ -1,6 +1,6 @@
 import { Elysia, t } from "elysia";
 import { authMiddleware } from "../middleware/auth.middleware";
-import { handleGetActiveBets, handleGetArchivedBets, handleGetResolvedBets, handleRegister, handleLogin } from "./handlers";
+import { handleGetActiveBets, handleGetArchivedBets, handleGetResolvedBets, handleRegister, handleLogin, handleGetApiKey, handleGenerateApiKey, handleRevokeApiKey } from "./handlers";
 
 export const authRoutes = new Elysia({ prefix: "/api/auth" })
   .use(authMiddleware)
@@ -34,6 +34,7 @@ export const authRoutes = new Elysia({ prefix: "/api/auth" })
           email: user!.email,
           role: user!.role,
           balance: user!.balance,
+          apiKey: user!.apiKey ?? null,
         }))
         .get("/me/resolved-bets", handleGetResolvedBets as any, {
           query: t.Object({
@@ -52,5 +53,8 @@ export const authRoutes = new Elysia({ prefix: "/api/auth" })
             limit: t.Optional(t.Numeric({ default: 20 })),
             offset: t.Optional(t.Numeric({ default: 0 })),
           }),
-        }),
+        })
+        .get("/me/api-key", handleGetApiKey as any)
+        .post("/me/api-key", handleGenerateApiKey as any)
+        .delete("/me/api-key", handleRevokeApiKey as any),
   );

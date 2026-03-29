@@ -29,6 +29,7 @@ export interface User {
   token: string;
   role?: "user" | "admin";
   balance?: number;
+  apiKey?: string | null;
 }
 
 export interface Bet {
@@ -218,6 +219,19 @@ class ApiClient {
       method: "POST",
       body: JSON.stringify({ outcomeId, amount }),
     });
+  }
+
+  // API key endpoints
+  async getApiKey(): Promise<{ apiKey: string | null }> {
+    return this.request("/api/auth/me/api-key");
+  }
+
+  async generateApiKey(): Promise<{ apiKey: string }> {
+    return this.request("/api/auth/me/api-key", { method: "POST" });
+  }
+
+  async revokeApiKey(): Promise<void> {
+    await this.request("/api/auth/me/api-key", { method: "DELETE" });
   }
 }
 

@@ -1,20 +1,19 @@
 import { Elysia } from "elysia";
-import { getUserById } from "../lib/auth";
+import { getUserById, getUserByApiKey } from "../lib/auth";
 
 export const authMiddleware = new Elysia({ name: "auth-middleware" })
   .derive(async ({ headers, jwt }) => {
     const authHeader = headers["authorization"];
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return { user: null };
+    if (authHeader?.startsWith("Bearer ")) {
+      const token = authHeader.substring(7);
+      const payload = await jwt.verify(token);
+      if (!payload) return { user: null };
+      return { user: await getUserById(payload.userId) };
     }
 
-    const token = authHeader.substring(7);
-    const payload = await jwt.verify(token);
-    if (!payload) {
-      return { user: null };
-    }
+    const apiKey = headers["x-api-key"];
+    if (apiKey) return { user: await getUserByApiKey(apiKey) };
 
-    const user = await getUserById(payload.userId);
-    return { user };
+    return { user: null };
   })
   .as("plugin");

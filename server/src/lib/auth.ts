@@ -28,3 +28,11 @@ export async function getUserById(userId: number): Promise<typeof usersTable.$in
   const user = await db.query.usersTable.findFirst({ where: eq(usersTable.id, userId) });
   return user ?? null;
 }
+
+/**
+ * Get user by API key
+ */
+export async function getUserByApiKey(apiKey: string): Promise<typeof usersTable.$inferSelect | null> {
+  const user = await db.query.usersTable.findFirst({ where: eq(usersTable.apiKey, apiKey) });
+  return user ?? null;
+}
