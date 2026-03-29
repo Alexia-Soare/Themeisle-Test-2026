@@ -241,6 +241,29 @@ import { Wallet, Eye, EyeOff, Copy } from "lucide-react";
           Back to Markets
         </Button>
 
+        <Card>
+          <CardHeader className="space-y-2">
+            <CardTitle className="text-4xl">Your Profile</CardTitle>
+            <CardDescription>Account details currently stored in your session.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-none border border-primary/20 bg-primary/5 p-4">
+                <p className="text-xs text-muted-foreground">Username</p>
+                <p className="text-lg font-semibold text-foreground">{user.username}</p>
+              </div>
+              <div className="rounded-none border border-primary/20 bg-primary/5 p-4">
+                <p className="text-xs text-muted-foreground">Email</p>
+                <p className="text-lg font-semibold text-foreground break-all">{user.email}</p>
+              </div>
+              <div className="rounded-none border border-primary/20 bg-primary/5 p-4">
+                <p className="text-xs text-muted-foreground">User ID</p>
+                <p className="text-lg font-semibold text-foreground">#{user.id}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card className="border-green-200 bg-linear-to-r from-green-50 to-emerald-50">
           <CardContent className="py-6">
             <div className="flex items-center justify-between">
@@ -459,29 +482,6 @@ import { Wallet, Eye, EyeOff, Copy } from "lucide-react";
           </CardContent>
         </Card>
         )}
-
-        <Card>
-          <CardHeader className="space-y-2">
-            <CardTitle className="text-4xl">Your Profile</CardTitle>
-            <CardDescription>Account details currently stored in your session.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="rounded-none border border-primary/20 bg-primary/5 p-4">
-                <p className="text-xs text-muted-foreground">Username</p>
-                <p className="text-lg font-semibold text-foreground">{user.username}</p>
-              </div>
-              <div className="rounded-none border border-primary/20 bg-primary/5 p-4">
-                <p className="text-xs text-muted-foreground">Email</p>
-                <p className="text-lg font-semibold text-foreground break-all">{user.email}</p>
-              </div>
-              <div className="rounded-none border border-primary/20 bg-primary/5 p-4">
-                <p className="text-xs text-muted-foreground">User ID</p>
-                <p className="text-lg font-semibold text-foreground">#{user.id}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         <Card>
           <CardHeader className="space-y-2">
