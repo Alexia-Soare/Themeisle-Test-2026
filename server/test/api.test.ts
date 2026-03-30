@@ -1,12 +1,68 @@
 import { describe, it, expect, beforeAll } from "bun:test";
 import { eq } from "drizzle-orm";
-import { migrate } from "drizzle-orm/bun-sqlite/migrator";
-import { app } from "../index";
-import db from "../src/db";
+import { applyMigrations } from "../src/db/apply-migrations";
 import { betsTable, marketOutcomesTable, marketsTable } from "../src/db/schema";
 import type { ActiveBetSummary } from "../../client/src/lib/api";
 
 const BASE = "http://localhost";
+
+type AuthPayload = {
+  id: number;
+  username: string;
+  email: string;
+  token: string;
+  role?: string;
+};
+
+type ValidationErrorPayload = {
+  errors: unknown[];
+};
+
+type UnauthorizedPayload = {
+  error: string;
+};
+
+type MarketPayload = {
+  id: number;
+  title: string;
+  description: string | null;
+  outcomes: Array<{ id: number; title: string }>;
+};
+
+type MarketListItem = {
+  id: number;
+  status: string;
+};
+
+type ResolvedBetPayload = {
+  marketTitle: string;
+  outcomeTitle: string;
+  result: string;
+};
+
+type RegisterPayload = {
+  id: number;
+};
+
+type LeaderboardPayload = {
+  userId: number;
+  totalWinnings: number;
+};
+
+type BetPayload = {
+  id: number;
+  userId: number;
+  marketId: number;
+  outcomeId: number;
+  amount: number;
+};
+
+// Keep tests runnable even when bun test is executed outside server/ where preload may not apply.
+process.env.DB_FILE_NAME ||= ":memory:";
+process.env.JWT_SECRET ||= "test-jwt-secret";
+
+let app!: (typeof import("../index"))["app"];
+let db!: (typeof import("../src/db"))["default"];
 
 // Shared state across tests (populated by earlier tests, consumed by later ones)
 let authToken: string;
@@ -16,8 +72,14 @@ let outcomeId: number;
 let resolvedMarketId: number;
 
 beforeAll(async () => {
+  const appModule = await import("../index");
+  const dbModule = await import("../src/db");
+
+  app = appModule.app;
+  db = dbModule.default;
+
   // Run migrations to create tables on the in-memory DB
-  await migrate(db, { migrationsFolder: "./drizzle" });
+  await applyMigrations(db);
 });
 
 describe("Auth", () => {
@@ -35,7 +97,7 @@ describe("Auth", () => {
     );
 
     expect(res.status).toBe(201);
-    const data = await res.json();
+    const data = (await res.json()) as AuthPayload;
     expect(data.id).toBeDefined();
     expect(data.username).toBe(username);
     expect(data.email).toBe(email);
@@ -67,7 +129,7 @@ describe("Auth", () => {
     );
 
     expect(res.status).toBe(400);
-    const data = await res.json();
+    const data = (await res.json()) as ValidationErrorPayload;
     expect(data.errors.length).toBeGreaterThan(0);
   });
 
@@ -81,7 +143,7 @@ describe("Auth", () => {
     );
 
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = (await res.json()) as AuthPayload;
     expect(data.id).toBe(userId);
     expect(data.token).toBeDefined();
   });
@@ -102,7 +164,7 @@ describe("Auth", () => {
     const res = await app.handle(new Request(`${BASE}/api/auth/me`));
 
     expect(res.status).toBe(401);
-    const data = await res.json();
+    const data = (await res.json()) as UnauthorizedPayload;
     expect(data.error).toBe("Unauthorized");
   });
 
@@ -124,7 +186,7 @@ describe("Auth", () => {
     );
 
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = (await res.json()) as AuthPayload;
     expect(data.id).toBe(userId);
     expect(data.username).toBe("testuser");
     expect(data.email).toBe("test@example.com");
@@ -165,13 +227,14 @@ describe("Markets", () => {
     );
 
     expect(res.status).toBe(201);
-    const data = await res.json();
+    const data = (await res.json()) as MarketPayload;
     expect(data.id).toBeDefined();
     expect(data.title).toBe("Will it rain tomorrow?");
     expect(data.outcomes).toHaveLength(2);
+    expect(data.outcomes[0]).toBeDefined();
 
     marketId = data.id;
-    outcomeId = data.outcomes[0].id;
+    outcomeId = data.outcomes[0]!.id;
   });
 
   it("POST /api/markets — validates input", async () => {
@@ -187,7 +250,7 @@ describe("Markets", () => {
     );
 
     expect(res.status).toBe(400);
-    const data = await res.json();
+    const data = (await res.json()) as ValidationErrorPayload;
     expect(data.errors.length).toBeGreaterThan(0);
   });
 
@@ -205,29 +268,37 @@ describe("Markets", () => {
     const resolvedOutcomes = await db
       .insert(marketOutcomesTable)
       .values([
-      { marketId: resolvedMarket[0].id, title: "Yes", position: 0 },
-      { marketId: resolvedMarket[0].id, title: "No", position: 1 },
+      { marketId: resolvedMarket[0]!.id, title: "Yes", position: 0 },
+      { marketId: resolvedMarket[0]!.id, title: "No", position: 1 },
       ])
       .returning();
 
+    expect(resolvedMarket[0]).toBeDefined();
+    expect(resolvedOutcomes[0]).toBeDefined();
+    expect(resolvedOutcomes[1]).toBeDefined();
+
+    const resolvedMarketRow = resolvedMarket[0]!;
+    const resolvedOutcomeWinner = resolvedOutcomes[0]!;
+    const resolvedOutcomeLoser = resolvedOutcomes[1]!;
+
     await db
       .update(marketsTable)
-      .set({ resolvedOutcomeId: resolvedOutcomes[0].id })
-      .where(eq(marketsTable.id, resolvedMarket[0].id));
+      .set({ resolvedOutcomeId: resolvedOutcomeWinner.id })
+      .where(eq(marketsTable.id, resolvedMarketRow.id));
 
     await db.insert(betsTable).values({
       userId,
-      marketId: resolvedMarket[0].id,
-      outcomeId: resolvedOutcomes[1].id,
+      marketId: resolvedMarketRow.id,
+      outcomeId: resolvedOutcomeLoser.id,
       amount: 25,
     });
 
-    resolvedMarketId = resolvedMarket[0].id;
+    resolvedMarketId = resolvedMarketRow.id;
 
     const res = await app.handle(new Request(`${BASE}/api/markets`));
 
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = (await res.json()) as Array<MarketListItem>;
     expect(Array.isArray(data)).toBe(true);
     expect(data.length).toBeGreaterThan(0);
     expect(data.every((market: { status: string }) => market.status === "active")).toBe(true);
@@ -239,7 +310,7 @@ describe("Markets", () => {
     const res = await app.handle(new Request(`${BASE}/api/markets?status=resolved`));
 
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = (await res.json()) as Array<MarketListItem>;
     expect(Array.isArray(data)).toBe(true);
     expect(data.length).toBeGreaterThan(0);
     expect(data.every((market: { status: string }) => market.status === "resolved")).toBe(true);
@@ -257,12 +328,13 @@ describe("Markets", () => {
     );
 
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = (await res.json()) as Array<ResolvedBetPayload>;
     expect(Array.isArray(data)).toBe(true);
     expect(data.length).toBeGreaterThan(0);
-    expect(data[0].marketTitle).toBe("Did the launch succeed?");
-    expect(data[0].outcomeTitle).toBe("No");
-    expect(data[0].result).toBe("lost");
+    expect(data[0]).toBeDefined();
+    expect(data[0]!.marketTitle).toBe("Did the launch succeed?");
+    expect(data[0]!.outcomeTitle).toBe("No");
+    expect(data[0]!.result).toBe("lost");
   });
 
   it("GET /api/markets/leaderboard — ranks users by total winnings descending", async () => {
@@ -279,7 +351,7 @@ describe("Markets", () => {
     );
 
     expect(registerRes.status).toBe(201);
-    const registeredWinner = await registerRes.json();
+    const registeredWinner = (await registerRes.json()) as RegisterPayload;
 
     const resolvedMarket = await db.query.marketsTable.findFirst({
       where: eq(marketsTable.id, resolvedMarketId),
@@ -300,7 +372,7 @@ describe("Markets", () => {
     const leaderboardRes = await app.handle(new Request(`${BASE}/api/markets/leaderboard`));
 
     expect(leaderboardRes.status).toBe(200);
-    const leaderboard = await leaderboardRes.json();
+    const leaderboard = (await leaderboardRes.json()) as Array<LeaderboardPayload>;
     expect(Array.isArray(leaderboard)).toBe(true);
 
     const winnerEntry = leaderboard.find((entry: { userId: number }) => entry.userId === registeredWinner.id);
@@ -308,6 +380,9 @@ describe("Markets", () => {
 
     expect(winnerEntry).toBeDefined();
     expect(originalUserEntry).toBeDefined();
+    if (!winnerEntry || !originalUserEntry) {
+      throw new Error("Expected leaderboard entries to exist");
+    }
     expect(winnerEntry.totalWinnings).toBe(65);
     expect(originalUserEntry.totalWinnings).toBe(0);
 
@@ -317,9 +392,9 @@ describe("Markets", () => {
       },
     });
     expect(leaderboard).toHaveLength(allUsers.length);
-
-    expect(leaderboard[0].userId).toBe(registeredWinner.id);
-    expect(leaderboard[0].totalWinnings).toBeGreaterThanOrEqual(leaderboard[1].totalWinnings);
+    expect(leaderboard[0]).toBeDefined();
+    expect(leaderboard[1]).toBeDefined();
+    expect(leaderboard[0]!.totalWinnings).toBeGreaterThanOrEqual(leaderboard[1]!.totalWinnings);
   });
 
   it("GET /api/markets — rejects invalid status filters", async () => {
@@ -332,7 +407,7 @@ describe("Markets", () => {
     const res = await app.handle(new Request(`${BASE}/api/markets/${marketId}`));
 
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = (await res.json()) as MarketPayload;
     expect(data.id).toBe(marketId);
     expect(data.title).toBe("Will it rain tomorrow?");
     expect(data.description).toBe("Weather prediction");
@@ -386,7 +461,7 @@ describe("Bets", () => {
     );
 
     expect(res.status).toBe(201);
-    const data = await res.json();
+    const data = (await res.json()) as BetPayload;
     expect(data.id).toBeDefined();
     expect(data.userId).toBe(userId);
     expect(data.marketId).toBe(marketId);
@@ -428,7 +503,7 @@ describe("Bets", () => {
     );
 
     expect(res.status).toBe(400);
-    const data = await res.json();
+    const data = (await res.json()) as ValidationErrorPayload;
     expect(data.errors.length).toBeGreaterThan(0);
   });
 });
@@ -438,7 +513,7 @@ describe("Error handling", () => {
     const res = await app.handle(new Request(`${BASE}/nonexistent`));
 
     expect(res.status).toBe(404);
-    const data = await res.json();
+    const data = (await res.json()) as UnauthorizedPayload;
     expect(data.error).toBe("Not found");
   });
 });
