@@ -205,7 +205,14 @@ export async function handleGetActiveBets({
   });
 }
 
-export async function handleGetLeaderboard() {
+export async function handleGetLeaderboard({
+  query,
+}: {
+  query: { limit?: number; offset?: number };
+}) {
+  const limit = query.limit ?? 20;
+  const offset = query.offset ?? 0;
+
   const [users, bets] = await Promise.all([
     db.query.usersTable.findMany({
       columns: {
@@ -261,7 +268,7 @@ export async function handleGetLeaderboard() {
     );
   }
 
-  return users
+  const sorted = users
     .map((user) => ({
       userId: user.id,
       username: user.username,
@@ -274,6 +281,11 @@ export async function handleGetLeaderboard() {
 
       return left.username.localeCompare(right.username);
     });
+
+  return {
+    entries: sorted.slice(offset, offset + limit),
+    total: sorted.length,
+  };
 }
 
 export async function handleCreateMarket({

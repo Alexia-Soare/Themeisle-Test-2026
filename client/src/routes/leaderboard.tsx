@@ -5,19 +5,26 @@ import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
+const PAGE_SIZE = 20;
+
 function LeaderboardPage() {
   const navigate = useNavigate();
   const [leaderboard, setLeaderboard] = useState<Array<LeaderboardEntry>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const [total, setTotal] = useState(0);
+
+  const totalPages = Math.ceil(total / PAGE_SIZE);
 
   useEffect(() => {
     async function loadLeaderboard() {
       try {
         setIsLoading(true);
         setError(null);
-        const data = await api.getLeaderboard();
-        setLeaderboard(data);
+        const data = await api.getLeaderboard(PAGE_SIZE, page * PAGE_SIZE);
+        setLeaderboard(data.entries);
+        setTotal(data.total);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load leaderboard");
       } finally {
@@ -26,7 +33,7 @@ function LeaderboardPage() {
     }
 
     void loadLeaderboard();
-  }, []);
+  }, [page]);
 
   return (
     <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 py-8">
@@ -66,13 +73,37 @@ function LeaderboardPage() {
                     key={entry.userId}
                     className="grid grid-cols-[80px_1fr_160px] items-center gap-3 border border-border bg-background px-4 py-3"
                   >
-                    <span className="text-sm font-semibold text-foreground">#{index + 1}</span>
+                    <span className="text-sm font-semibold text-foreground">#{page * PAGE_SIZE + index + 1}</span>
                     <span className="text-sm text-foreground">{entry.username}</span>
                     <span className="text-right text-sm font-semibold text-primary">
                       ${entry.totalWinnings.toFixed(2)}
                     </span>
                   </div>
                 ))}
+
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between border-t border-border pt-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage((p) => p - 1)}
+                      disabled={page === 0}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      Page {page + 1} of {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage((p) => p + 1)}
+                      disabled={page >= totalPages - 1}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>

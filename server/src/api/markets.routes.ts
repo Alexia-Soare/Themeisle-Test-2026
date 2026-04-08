@@ -22,7 +22,12 @@ export const marketRoutes = new Elysia({ prefix: "/api/markets" })
       offset: t.Optional(t.Numeric({ default: 0 })),
     }),
   })
-  .get("/leaderboard", handleGetLeaderboard)
+  .get("/leaderboard", handleGetLeaderboard, {
+    query: t.Object({
+      limit: t.Optional(t.Numeric({ default: 20 })),
+      offset: t.Optional(t.Numeric({ default: 0 })),
+    }),
+  })
   .get("/:id/stream", handleMarketStream, {
     params: t.Object({
       id: t.Numeric(),

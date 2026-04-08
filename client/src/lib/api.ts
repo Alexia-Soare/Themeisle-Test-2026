@@ -74,6 +74,11 @@ export interface LeaderboardEntry {
   totalWinnings: number;
 }
 
+export interface LeaderboardResponse {
+  entries: Array<LeaderboardEntry>;
+  total: number;
+}
+
 // API Client
 class ApiClient {
   private baseUrl: string;
@@ -158,8 +163,8 @@ class ApiClient {
     return this.request(`/api/auth/me/archived-bets?limit=${limit}&offset=${offset}`);
   }
 
-  async getLeaderboard(): Promise<Array<LeaderboardEntry>> {
-    return this.request("/api/markets/leaderboard");
+  async getLeaderboard(limit = 20, offset = 0): Promise<LeaderboardResponse> {
+    return this.request(`/api/markets/leaderboard?limit=${limit}&offset=${offset}`);
   }
 
   // Markets endpoints
