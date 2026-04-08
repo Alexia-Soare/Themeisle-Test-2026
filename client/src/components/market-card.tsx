@@ -55,7 +55,7 @@ function MarketCardComponent({ market }: MarketCardProps) {
       <CardContent className="flex flex-1 flex-col gap-4">
         {/* Outcomes */}
         <div className="space-y-2">
-          {market.outcomes.map((outcome) => (
+          {market.outcomes.slice(0, 2).map((outcome) => (
             <div
               key={outcome.id}
               className="flex items-center justify-between rounded-md bg-secondary/20 p-3"
