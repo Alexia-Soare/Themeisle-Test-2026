@@ -201,8 +201,8 @@ function MarketDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 py-8">
-      <div className="max-w-3xl mx-auto px-4 space-y-6">
+    <div className="min-h-screen bg-background py-8">
+      <div className="max-w-3xl mx-auto px-4 space-y-6 animate-fade-in-up">
         {/* Header */}
         <Button variant="outline" onClick={() => navigate({ to: "/" })}>
           ← Back
@@ -337,7 +337,7 @@ function MarketDetailPage() {
             </div>
 
             {isAdmin && market.status === "active" && (
-              <Card className="border-amber-300 bg-amber-50/60">
+              <Card className="border-amber-500/30 dark:border-amber-400/30 bg-amber-500/5">
                 <CardHeader>
                   <CardTitle>Admin Controls</CardTitle>
                   <CardDescription>Resolve the market with a winning outcome, or archive it to cancel and refund all bets.</CardDescription>
@@ -380,7 +380,7 @@ function MarketDetailPage() {
 
                   <Button
                     variant="outline"
-                    className="w-full border-amber-400 text-amber-800 hover:bg-amber-100"
+                    className="w-full border-amber-500/40 dark:border-amber-400/40 text-amber-700 dark:text-amber-300 hover:bg-amber-500/10"
                     onClick={handleArchiveMarket}
                     disabled={isArchiving || isResolving}
                   >
@@ -399,7 +399,7 @@ function MarketDetailPage() {
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <Label>Selected Outcome</Label>
-                    <div className="p-3 bg-white border border-secondary rounded-md">
+                    <div className="p-3 bg-background border border-secondary rounded-md">
                       {market.outcomes.find((o) => o.id === selectedOutcomeId)?.title ||
                         "None selected"}
                     </div>
@@ -439,10 +439,10 @@ function MarketDetailPage() {
             )}
 
             {market.status === "archived" && (
-              <Card className="border-amber-300 bg-amber-50/60">
+              <Card className="border-amber-500/30 dark:border-amber-400/30 bg-amber-500/5">
                 <CardContent className="py-6">
-                  <p className="font-medium text-amber-900">This market has been archived.</p>
-                  <p className="text-sm text-amber-700 mt-1">All bets have been refunded to bettors.</p>
+                  <p className="font-medium text-amber-800 dark:text-amber-200">This market has been archived.</p>
+                  <p className="text-sm text-amber-600 dark:text-amber-400 mt-1">All bets have been refunded to bettors.</p>
                 </CardContent>
               </Card>
             )}

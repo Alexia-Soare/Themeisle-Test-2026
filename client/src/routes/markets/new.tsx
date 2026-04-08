@@ -54,8 +54,8 @@ function CreateMarketPage() {
   });
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <div className="max-w-2xl mx-auto">
+    <div className="min-h-screen bg-background p-4">
+      <div className="max-w-2xl mx-auto animate-fade-in-up">
         <Card>
           <CardHeader className="space-y-2">
             <CardTitle className="text-3xl">Create a Market</CardTitle>

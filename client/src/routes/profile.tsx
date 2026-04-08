@@ -220,7 +220,7 @@ import { Wallet, Eye, EyeOff, Copy } from "lucide-react";
 
   if (!isAuthenticated || !user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-blue-50 to-indigo-100 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-2 text-center">
             <CardTitle className="text-3xl">Profile</CardTitle>
@@ -235,8 +235,8 @@ import { Wallet, Eye, EyeOff, Copy } from "lucide-react";
   }
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 py-8">
-      <div className="max-w-3xl mx-auto px-4 space-y-6">
+    <div className="min-h-screen bg-background py-8">
+      <div className="max-w-3xl mx-auto px-4 space-y-6 animate-fade-in-up">
         <Button variant="outline" onClick={() => navigate({ to: "/" })}>
           Back to Markets
         </Button>
@@ -248,15 +248,15 @@ import { Wallet, Eye, EyeOff, Copy } from "lucide-react";
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-3">
-              <div className="rounded-none border border-primary/20 bg-primary/5 p-4">
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
                 <p className="text-xs text-muted-foreground">Username</p>
                 <p className="text-lg font-semibold text-foreground">{user.username}</p>
               </div>
-              <div className="rounded-none border border-primary/20 bg-primary/5 p-4">
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
                 <p className="text-xs text-muted-foreground">Email</p>
                 <p className="text-lg font-semibold text-foreground break-all">{user.email}</p>
               </div>
-              <div className="rounded-none border border-primary/20 bg-primary/5 p-4">
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
                 <p className="text-xs text-muted-foreground">User ID</p>
                 <p className="text-lg font-semibold text-foreground">#{user.id}</p>
               </div>
@@ -264,17 +264,17 @@ import { Wallet, Eye, EyeOff, Copy } from "lucide-react";
           </CardContent>
         </Card>
 
-        <Card className="border-green-200 bg-linear-to-r from-green-50 to-emerald-50">
+        <Card className="border-emerald-500/20 dark:border-emerald-400/20 bg-emerald-500/5">
           <CardContent className="py-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium uppercase tracking-widest text-green-600">Current Balance</p>
-                <p className="mt-2 text-6xl font-bold tracking-tight text-green-700">
+                <p className="text-sm font-medium uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Current Balance</p>
+                <p className="mt-2 text-6xl font-bold tracking-tight text-emerald-700 dark:text-emerald-300">
                   ${(user.balance ?? 0).toFixed(2)}
                 </p>
               </div>
-              <div className="rounded-full bg-green-100 p-5">
-                <Wallet className="h-10 w-10 text-green-600" />
+              <div className="rounded-full bg-emerald-500/10 dark:bg-emerald-400/10 p-5">
+                <Wallet className="h-10 w-10 text-emerald-600 dark:text-emerald-400" />
               </div>
             </div>
           </CardContent>
@@ -327,7 +327,7 @@ import { Wallet, Eye, EyeOff, Copy } from "lucide-react";
                 {paginatedActiveBets.map((bet) => (
                   <div
                     key={bet.id}
-                    className="flex flex-col gap-3 rounded-none border border-border bg-background p-4 md:flex-row md:items-center md:justify-between"
+                    className="flex flex-col gap-3 rounded-lg border border-border bg-background p-4 md:flex-row md:items-center md:justify-between"
                   >
                     <div className="space-y-1">
                       <p className="text-base font-semibold text-foreground">{bet.marketTitle}</p>
@@ -394,7 +394,7 @@ import { Wallet, Eye, EyeOff, Copy } from "lucide-react";
                 {paginatedResolvedBets.map((bet) => (
                   <div
                     key={bet.id}
-                    className="flex flex-col gap-3 rounded-none border border-border bg-background p-4 md:flex-row md:items-center md:justify-between"
+                    className="flex flex-col gap-3 rounded-lg border border-border bg-background p-4 md:flex-row md:items-center md:justify-between"
                   >
                     <div className="space-y-1">
                       <p className="text-base font-semibold text-foreground">{bet.marketTitle}</p>
@@ -405,7 +405,7 @@ import { Wallet, Eye, EyeOff, Copy } from "lucide-react";
                         {bet.result === "won" ? "Won" : "Lost"}
                       </Badge>
                       {bet.result === "won" && bet.payout !== null && (
-                        <p className="text-sm font-semibold text-green-700">+${bet.payout.toFixed(2)}</p>
+                        <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">+${bet.payout.toFixed(2)}</p>
                       )}
                     </div>
                   </div>
@@ -465,14 +465,14 @@ import { Wallet, Eye, EyeOff, Copy } from "lucide-react";
                 {paginatedArchivedBets.map((bet) => (
                   <div
                     key={bet.id}
-                    className="flex flex-col gap-3 rounded-none border border-border bg-background p-4 md:flex-row md:items-center md:justify-between"
+                    className="flex flex-col gap-3 rounded-lg border border-border bg-background p-4 md:flex-row md:items-center md:justify-between"
                   >
                     <div className="space-y-1">
                       <p className="text-base font-semibold text-foreground">{bet.marketTitle}</p>
                       <p className="text-sm text-muted-foreground">Outcome: {bet.outcomeTitle}</p>
                       <p className="text-sm text-muted-foreground">Amount: ${bet.amount.toFixed(2)}</p>
                     </div>
-                    <Badge variant="outline" className="border-amber-300 text-amber-800">
+                    <Badge variant="outline" className="border-amber-500/30 dark:border-amber-400/30 text-amber-700 dark:text-amber-300">
                       Refunded
                     </Badge>
                   </div>
@@ -502,7 +502,7 @@ import { Wallet, Eye, EyeOff, Copy } from "lucide-react";
             ) : apiKey ? (
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <code className="flex-1 rounded-none border border-border bg-muted px-3 py-2 text-sm font-mono break-all">
+                  <code className="flex-1 rounded-lg border border-border bg-muted px-3 py-2 text-sm font-mono break-all">
                     {showApiKey ? apiKey : "pm_" + "•".repeat(44)}
                   </code>
                   <Button variant="outline" size="sm" onClick={() => setShowApiKey((v) => !v)}>

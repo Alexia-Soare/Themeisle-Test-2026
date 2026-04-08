@@ -36,8 +36,8 @@ function LoginPage() {
   });
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-md animate-fade-in-up">
         <CardHeader className="space-y-2">
           <CardTitle className="text-3xl">Login</CardTitle>
           <CardDescription>Enter your credentials to access your account</CardDescription>

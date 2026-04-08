@@ -36,8 +36,8 @@ function LeaderboardPage() {
   }, [page]);
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 py-8">
-      <div className="mx-auto w-full max-w-4xl space-y-6 px-4">
+    <div className="min-h-screen bg-background py-8">
+      <div className="mx-auto w-full max-w-4xl space-y-6 px-4 animate-fade-in-up">
         <Button variant="outline" onClick={() => navigate({ to: "/" })}>
           Back to Markets
         </Button>
@@ -71,7 +71,7 @@ function LeaderboardPage() {
                 {leaderboard.map((entry, index) => (
                   <div
                     key={entry.userId}
-                    className="grid grid-cols-[80px_1fr_160px] items-center gap-3 border border-border bg-background px-4 py-3"
+                    className="grid grid-cols-[80px_1fr_160px] items-center gap-3 rounded-lg border border-border bg-background px-4 py-3 transition-colors duration-150 hover:bg-muted/50"
                   >
                     <span className="text-sm font-semibold text-foreground">#{page * PAGE_SIZE + index + 1}</span>
                     <span className="text-sm text-foreground">{entry.username}</span>

@@ -18,7 +18,7 @@ function MarketCardComponent({ market }: MarketCardProps) {
 
   return (
     <Card
-      className="cursor-pointer rounded-xl transition-all hover:shadow-lg"
+      className="cursor-pointer rounded-xl transition-all duration-200 hover:shadow-lg hover:-translate-y-1 hover:shadow-primary/5"
       onClick={handleCardClick}
       role="button"
       tabIndex={0}

@@ -13,8 +13,8 @@ function LogoutPage() {
   }, [logout, navigate]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-md animate-fade-in">
         <CardHeader className="space-y-2 text-center">
           <CardTitle className="text-3xl">Logging out</CardTitle>
           <CardDescription>Your session is being cleared.</CardDescription>

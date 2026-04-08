@@ -2,19 +2,21 @@ import { HeadContent, Outlet, Scripts, createRootRoute } from "@tanstack/react-r
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import { AuthProvider } from "@/lib/auth-context";
+import { ThemeProvider } from "@/lib/theme-context";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 import appCss from "../styles.css?url";
 
 function NotFoundComponent() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="text-center">
-        <h1 className="text-6xl font-bold mb-4 text-gray-900">404</h1>
-        <p className="text-2xl font-semibold text-gray-700 mb-2">Page Not Found</p>
-        <p className="text-gray-600 mb-8">The page you are looking for does not exist.</p>
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="text-center animate-fade-in-up">
+        <h1 className="text-6xl font-bold mb-4 text-foreground">404</h1>
+        <p className="text-2xl font-semibold text-muted-foreground mb-2">Page Not Found</p>
+        <p className="text-muted-foreground mb-8">The page you are looking for does not exist.</p>
         <a
           href="/"
-          className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="inline-block px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/80 transition-colors"
         >
           Go Home
         </a>
@@ -52,20 +54,25 @@ export const Route = createRootRoute({
 
 function RootComponent() {
   return (
-    <AuthProvider>
-      <Outlet />
-      <TanStackDevtools
-        config={{
-          position: "bottom-right",
-        }}
-        plugins={[
-          {
-            name: "Tanstack Router",
-            render: <TanStackRouterDevtoolsPanel />,
-          },
-        ]}
-      />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <div className="fixed top-4 right-4 z-50">
+          <ThemeToggle />
+        </div>
+        <Outlet />
+        <TanStackDevtools
+          config={{
+            position: "bottom-right",
+          }}
+          plugins={[
+            {
+              name: "Tanstack Router",
+              render: <TanStackRouterDevtoolsPanel />,
+            },
+          ]}
+        />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

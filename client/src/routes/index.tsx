@@ -129,10 +129,10 @@ function DashboardPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-blue-50 to-indigo-100">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <h1 className="text-4xl font-bold mb-4 text-gray-900">Prediction Markets</h1>
-          <p className="text-gray-600 mb-8 text-lg">Create and participate in prediction markets</p>
+          <h1 className="text-4xl font-bold mb-4 text-foreground">Prediction Markets</h1>
+          <p className="text-muted-foreground mb-8 text-lg">Create and participate in prediction markets</p>
           <div className="space-x-4">
             <Button onClick={() => navigate({ to: "/auth/login" })}>Login</Button>
             <Button variant="outline" onClick={() => navigate({ to: "/auth/register" })}>
@@ -145,13 +145,13 @@ function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100">
-      <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="min-h-screen bg-background">
+      <div className="max-w-7xl mx-auto px-4 py-8 animate-fade-in-up">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-4xl font-bold text-gray-900">Markets</h1>
-            <p className="text-gray-600 mt-2">Welcome back, {user?.username}!</p>
+            <h1 className="text-4xl font-bold text-foreground">Markets</h1>
+            <p className="text-muted-foreground mt-2">Welcome back, {user?.username}!</p>
           </div>
           <div className="flex items-center gap-4">
             <Button onClick={() => navigate({ to: "/markets/new" })}>Create Market</Button>
@@ -213,7 +213,7 @@ function DashboardPage() {
         </div>
 
         {isAdmin && (
-          <div className="mb-6 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <div className="mb-6 rounded-md border border-amber-500/30 dark:border-amber-400/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
             Admin mode is enabled. Open any active market to resolve it with a winning outcome, or archive it to cancel and refund all bets.
           </div>
         )}
@@ -243,8 +243,10 @@ function DashboardPage() {
         ) : (
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {paginatedMarkets.map((market) => (
-                <MarketCard key={market.id} market={market} />
+              {paginatedMarkets.map((market, index) => (
+                <div key={`anim-${market.id}`} className="animate-fade-in-up" style={{ animationDelay: `${index * 50}ms` }}>
+                  <MarketCard key={market.id} market={market} />
+                </div>
               ))}
             </div>
 
