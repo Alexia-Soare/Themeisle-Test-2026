@@ -1,12 +1,13 @@
 import { useEffect, useEffectEvent, useMemo, useState, useRef } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ChevronDownIcon } from "lucide-react";
+import { ChevronDownIcon, TrendingUp, Users, Zap, BarChart3, ArrowRight } from "lucide-react";
 import type { Market } from "@/lib/api";
 import { api, marketStatuses } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { MarketCard } from "@/components/market-card";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -129,15 +130,61 @@ function DashboardPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold mb-4 text-foreground">Prediction Markets</h1>
-          <p className="text-muted-foreground mb-8 text-lg">Create and participate in prediction markets</p>
-          <div className="space-x-4">
-            <Button onClick={() => navigate({ to: "/auth/login" })}>Login</Button>
-            <Button variant="outline" onClick={() => navigate({ to: "/auth/register" })}>
-              Sign Up
-            </Button>
+      <div className="relative min-h-screen overflow-hidden bg-background">
+        {/* Global gradient orbs — span full page to avoid section seams */}
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -top-24 left-1/4 h-128 w-lg rounded-full blur-3xl" style={{ background: "oklch(0.6 0.2 295 / 10%)" }} />
+          <div className="absolute top-1/3 right-1/4 h-96 w-96 rounded-full blur-3xl" style={{ background: "oklch(0.65 0.18 145 / 8%)" }} />
+          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 h-64 w-64 rounded-full blur-3xl" style={{ background: "oklch(0.55 0.22 310 / 9%)" }} />
+        </div>
+
+        {/* Hero Section */}
+        <div className="relative min-h-[70vh] flex items-center justify-center">
+          <div className="relative z-10 text-center max-w-3xl mx-auto px-6 animate-fade-in-up">
+            <Badge variant="secondary" className="mb-6 px-4 py-1.5 text-sm">
+              Predict the future
+            </Badge>
+            <h1 className="text-5xl sm:text-6xl font-bold mb-6 text-foreground tracking-tight leading-tight">
+              Prediction<br />
+              <span className="text-primary">Markets</span>
+            </h1>
+            <p className="text-muted-foreground mb-10 text-lg sm:text-xl max-w-xl mx-auto leading-relaxed">
+              Put your knowledge to the test. Create markets, place bets on outcomes, and compete for the top of the leaderboard.
+            </p>
+            <div className="flex items-center justify-center gap-4">
+              <Button size="lg" className="gap-2 text-base px-8" onClick={() => navigate({ to: "/auth/register" })}>
+                Get Started <ArrowRight className="size-4" />
+              </Button>
+              <Button size="lg" variant="outline" className="text-base px-8" onClick={() => navigate({ to: "/auth/login" })}>
+                Login
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Features Section */}
+        <div className="max-w-5xl mx-auto px-6 pb-20">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { icon: TrendingUp, title: "Live Odds", desc: "Real-time odds that update as bets come in" },
+              { icon: Zap, title: "Instant Payouts", desc: "Winnings distributed automatically on resolution" },
+              { icon: Users, title: "Leaderboard", desc: "Compete against others and climb the ranks" },
+              { icon: BarChart3, title: "Create Markets", desc: "Start your own market on any topic" },
+            ].map((feature, i) => (
+              <Card
+                key={feature.title}
+                className="border-border/50 bg-card/50 backdrop-blur-sm animate-fade-in-up"
+                style={{ animationDelay: `${200 + i * 100}ms` }}
+              >
+                <CardContent className="pt-6">
+                  <div className="mb-3 flex size-10 items-center justify-center rounded-lg bg-primary/10">
+                    <feature.icon className="size-5 text-primary" />
+                  </div>
+                  <h3 className="font-semibold text-foreground mb-1">{feature.title}</h3>
+                  <p className="text-sm text-muted-foreground">{feature.desc}</p>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         </div>
       </div>

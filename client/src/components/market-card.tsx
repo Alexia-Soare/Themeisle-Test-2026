@@ -77,7 +77,7 @@ function MarketCardComponent({ market }: MarketCardProps) {
           {/* Total Market Value */}
           <div className="rounded-md border border-primary/20 bg-primary/5 p-3">
             <p className="text-xs text-muted-foreground">Total Market Value</p>
-            <p className="text-2xl font-bold text-primary">
+            <p className="text-2xl font-bold" style={{ color: "oklch(0.82 0.20 295)" }}>
               ${market.totalMarketBets.toFixed(2)}
             </p>
           </div>

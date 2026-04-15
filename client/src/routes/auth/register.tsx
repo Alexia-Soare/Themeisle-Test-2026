@@ -43,8 +43,13 @@ function RegisterPage() {
   });
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md animate-fade-in-up">
+    <div className="relative min-h-screen flex items-center justify-center bg-background overflow-hidden p-4">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-24 left-1/4 h-128 w-lg rounded-full blur-3xl" style={{ background: "oklch(0.6 0.2 295 / 10%)" }} />
+        <div className="absolute top-1/3 right-1/4 h-96 w-96 rounded-full blur-3xl" style={{ background: "oklch(0.65 0.18 145 / 8%)" }} />
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 h-64 w-64 rounded-full blur-3xl" style={{ background: "oklch(0.55 0.22 310 / 9%)" }} />
+      </div>
+      <Card className="relative z-10 w-full max-w-md animate-fade-in-up">
         <CardHeader className="space-y-2">
           <CardTitle className="text-3xl">Sign Up</CardTitle>
           <CardDescription>Create your account to start betting</CardDescription>
