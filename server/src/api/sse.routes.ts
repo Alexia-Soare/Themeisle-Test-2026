@@ -8,18 +8,23 @@ function formatMessage(marketId: number): string {
 }
 
 export const sseRoutes = new Elysia({ prefix: "/api" }).get("/events", () => {
+  let unsubscribe: (() => void) | undefined;
+
   const stream = new ReadableStream({
     start(controller) {
       const message = formatMessage(-1);
       controller.enqueue(encoder.encode(message));
 
-      const unsubscribe = subscribe((marketId: number) => {
-        controller.enqueue(encoder.encode(formatMessage(marketId)));
+      unsubscribe = subscribe((marketId: number) => {
+        try {
+          controller.enqueue(encoder.encode(formatMessage(marketId)));
+        } catch {
+          // Stream closed, cleanup will happen in cancel()
+        }
       });
-
-      return () => {
-        unsubscribe();
-      };
+    },
+    cancel() {
+      unsubscribe?.();
     },
   });
 

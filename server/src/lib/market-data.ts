@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import db from "../db";
 import { betsTable, marketsTable } from "../db/schema";
 import { calculateOutcomeOdds } from "./odds";
@@ -34,16 +34,25 @@ type MarketQueryResult = {
 };
 
 async function getBetsPerOutcome(outcomeIds: Array<number>) {
-  return Promise.all(
-    outcomeIds.map(async (outcomeId) => {
-      const totalBets = await db.select().from(betsTable).where(eq(betsTable.outcomeId, outcomeId));
+  if (outcomeIds.length === 0) {
+    return [];
+  }
 
-      return {
-        outcomeId,
-        totalBets: totalBets.reduce((sum, bet) => sum + bet.amount, 0),
-      };
-    }),
-  );
+  const results = await db
+    .select({
+      outcomeId: betsTable.outcomeId,
+      totalBets: sql<number>`COALESCE(SUM(${betsTable.amount}), 0)`,
+    })
+    .from(betsTable)
+    .where(inArray(betsTable.outcomeId, outcomeIds))
+    .groupBy(betsTable.outcomeId);
+
+  // Build a map for fast lookup, include outcomes with 0 bets
+  const betMap = new Map(results.map((r) => [r.outcomeId, r.totalBets]));
+  return outcomeIds.map((outcomeId) => ({
+    outcomeId,
+    totalBets: betMap.get(outcomeId) ?? 0,
+  }));
 }
 
 async function enrichMarket(market: MarketQueryResult): Promise<EnrichedMarket> {

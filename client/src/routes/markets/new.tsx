@@ -1,6 +1,6 @@
 import { useForm } from "@tanstack/react-form";
 import { useNavigate, createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
@@ -14,11 +14,6 @@ function CreateMarketPage() {
   const { isAuthenticated } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-
-  if (!isAuthenticated) {
-    navigate({ to: "/auth/login" });
-    return null;
-  }
 
   const form = useForm({
     defaultValues: {
@@ -52,6 +47,16 @@ function CreateMarketPage() {
       }
     },
   });
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate({ to: "/auth/login" });
+    }
+  }, [isAuthenticated, navigate]);
+
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-background p-4">

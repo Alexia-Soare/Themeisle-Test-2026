@@ -1,93 +1,97 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import type { ActiveBetSummary, ArchivedBetSummary, Market, ResolvedBetSummary } from "@/lib/api";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Wallet, Eye, EyeOff, Copy } from "lucide-react";
+import {
+  Wallet, Eye, EyeOff, Copy,
+  ArrowLeft, ArrowRight, Check,
+  Clock, CheckCircle2, Archive,
+  CircleDot, TrendingUp, Trophy,
+  Key, Terminal, Inbox,
+} from "lucide-react";
 
-  const ITEMS_PER_PAGE = 20;
+const ITEMS_PER_PAGE = 20;
 
-  function ProfilePage() {
-    const navigate = useNavigate();
-    const { isAuthenticated, user } = useAuth();
-    const isAdmin = user?.role === "admin";
-    const [activeBets, setActiveBets] = useState<Array<ActiveBetSummary>>([]);
-    const [isLoadingActiveBets, setIsLoadingActiveBets] = useState(true);
-    const [activeBetsError, setActiveBetsError] = useState<string | null>(null);
-    const [resolvedBets, setResolvedBets] = useState<Array<ResolvedBetSummary>>([]);
-    const [isLoadingResolvedBets, setIsLoadingResolvedBets] = useState(true);
-    const [resolvedBetsError, setResolvedBetsError] = useState<string | null>(null);
-    const [archivedBets, setArchivedBets] = useState<Array<ArchivedBetSummary>>([]);
-    const [isLoadingArchivedBets, setIsLoadingArchivedBets] = useState(true);
-    const [archivedBetsError, setArchivedBetsError] = useState<string | null>(null);
-    const [activePage, setActivePage] = useState(1);
-    const [resolvedPage, setResolvedPage] = useState(1);
-    const [archivedPage, setArchivedPage] = useState(1);
-    const [apiKey, setApiKey] = useState<string | null>(null);
-    const [isLoadingApiKey, setIsLoadingApiKey] = useState(true);
-    const [apiKeyError, setApiKeyError] = useState<string | null>(null);
-    const [showApiKey, setShowApiKey] = useState(false);
-    const [isCopied, setIsCopied] = useState(false);
-    const [isGenerating, setIsGenerating] = useState(false);
+type BetTab = "active" | "resolved" | "archived";
 
-    const loadProfileBets = useCallback(async (options?: { background?: boolean }) => {
-      const isBackground = options?.background === true;
+function ProfilePage() {
+  const navigate = useNavigate();
+  const { isAuthenticated, user } = useAuth();
+  const isAdmin = user?.role === "admin";
+  const [activeBets, setActiveBets] = useState<Array<ActiveBetSummary>>([]);
+  const [isLoadingActiveBets, setIsLoadingActiveBets] = useState(true);
+  const [activeBetsError, setActiveBetsError] = useState<string | null>(null);
+  const [resolvedBets, setResolvedBets] = useState<Array<ResolvedBetSummary>>([]);
+  const [isLoadingResolvedBets, setIsLoadingResolvedBets] = useState(true);
+  const [resolvedBetsError, setResolvedBetsError] = useState<string | null>(null);
+  const [archivedBets, setArchivedBets] = useState<Array<ArchivedBetSummary>>([]);
+  const [isLoadingArchivedBets, setIsLoadingArchivedBets] = useState(true);
+  const [archivedBetsError, setArchivedBetsError] = useState<string | null>(null);
+  const [activePage, setActivePage] = useState(1);
+  const [resolvedPage, setResolvedPage] = useState(1);
+  const [archivedPage, setArchivedPage] = useState(1);
+  const [apiKey, setApiKey] = useState<string | null>(null);
+  const [isLoadingApiKey, setIsLoadingApiKey] = useState(true);
+  const [apiKeyError, setApiKeyError] = useState<string | null>(null);
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const { tab: activeTab } = useSearch({ from: "/profile" });
 
-      if (!isBackground) {
-        setIsLoadingActiveBets(true);
-        setIsLoadingResolvedBets(true);
-        setIsLoadingArchivedBets(true);
-      }
+  const setActiveTab = (tab: BetTab) => {
+    navigate({ to: "/profile", search: { tab }, replace: true, resetScroll: false });
+  };
 
+  // Computed stats
+  const totalWon = resolvedBets.filter((b) => b.result === "won").length;
+  const totalLost = resolvedBets.filter((b) => b.result === "lost").length;
+  const totalPayout = resolvedBets
+    .filter((b) => b.result === "won" && b.payout !== null)
+    .reduce((sum, b) => sum + (b.payout ?? 0), 0);
+
+  const loadProfileBets = useCallback(async (options?: { background?: boolean }) => {
+    const isBackground = options?.background === true;
+
+    // Only fetch the active tab's data
+    if (activeTab === "active") {
+      if (!isBackground) setIsLoadingActiveBets(true);
       setActiveBetsError(null);
+      try {
+        const data = await api.getActiveBets(ITEMS_PER_PAGE, (activePage - 1) * ITEMS_PER_PAGE);
+        setActiveBets(data);
+      } catch (err) {
+        setActiveBetsError(err instanceof Error ? err.message : "Failed to load active bets");
+      } finally {
+        if (!isBackground) setIsLoadingActiveBets(false);
+      }
+    } else if (activeTab === "resolved") {
+      if (!isBackground) setIsLoadingResolvedBets(true);
       setResolvedBetsError(null);
+      try {
+        const data = await api.getResolvedBets(ITEMS_PER_PAGE, (resolvedPage - 1) * ITEMS_PER_PAGE);
+        setResolvedBets(data);
+      } catch (err) {
+        setResolvedBetsError(err instanceof Error ? err.message : "Failed to load resolved bets");
+      } finally {
+        if (!isBackground) setIsLoadingResolvedBets(false);
+      }
+    } else if (activeTab === "archived" && isAdmin) {
+      if (!isBackground) setIsLoadingArchivedBets(true);
       setArchivedBetsError(null);
-
-      const [activeBetsResult, resolvedBetsResult, archivedBetsResult] = await Promise.allSettled([
-        api.getActiveBets(ITEMS_PER_PAGE, (activePage - 1) * ITEMS_PER_PAGE),
-        api.getResolvedBets(ITEMS_PER_PAGE, (resolvedPage - 1) * ITEMS_PER_PAGE),
-        isAdmin ? api.getArchivedBets(ITEMS_PER_PAGE, (archivedPage - 1) * ITEMS_PER_PAGE) : Promise.resolve([]),
-      ]);
-
-    if (activeBetsResult.status === "fulfilled") {
-      setActiveBets(activeBetsResult.value);
-    } else {
-      setActiveBetsError(
-        activeBetsResult.reason instanceof Error
-          ? activeBetsResult.reason.message
-          : "Failed to load active bets",
-      );
+      try {
+        const data = await api.getArchivedBets(ITEMS_PER_PAGE, (archivedPage - 1) * ITEMS_PER_PAGE);
+        setArchivedBets(data);
+      } catch (err) {
+        setArchivedBetsError(err instanceof Error ? err.message : "Failed to load archived bets");
+      } finally {
+        if (!isBackground) setIsLoadingArchivedBets(false);
+      }
     }
-
-    if (resolvedBetsResult.status === "fulfilled") {
-      setResolvedBets(resolvedBetsResult.value);
-    } else {
-      setResolvedBetsError(
-        resolvedBetsResult.reason instanceof Error
-          ? resolvedBetsResult.reason.message
-          : "Failed to load resolved bets",
-      );
-    }
-
-    if (archivedBetsResult.status === "fulfilled") {
-      setArchivedBets(archivedBetsResult.value);
-    } else {
-      setArchivedBetsError(
-        archivedBetsResult.reason instanceof Error
-          ? archivedBetsResult.reason.message
-          : "Failed to load archived bets",
-      );
-    }
-
-    if (!isBackground) {
-      setIsLoadingActiveBets(false);
-      setIsLoadingResolvedBets(false);
-      setIsLoadingArchivedBets(false);
-    }
-  }, [activePage, resolvedPage, archivedPage, isAdmin]);
+  }, [activeTab, activePage, resolvedPage, archivedPage, isAdmin]);
 
   const handleMarketUpdate = useCallback((updatedMarket: Market) => {
     if (updatedMarket.status !== "active") {
@@ -146,7 +150,7 @@ import { Wallet, Eye, EyeOff, Copy } from "lucide-react";
     }
 
     void loadProfileBets();
-  }, [isAuthenticated, activePage, resolvedPage, archivedPage, loadProfileBets]);
+  }, [isAuthenticated, activeTab, activePage, resolvedPage, archivedPage, loadProfileBets]);
 
   useEffect(() => {
     if (!isAuthenticated || activeMarketIds.length === 0) {
@@ -206,17 +210,9 @@ import { Wallet, Eye, EyeOff, Copy } from "lucide-react";
     setTimeout(() => setIsCopied(false), 2000);
   };
 
-  const activeStartIndex = 0;
-  const activeEndIndex = activeBets.length;
-  const paginatedActiveBets = activeBets;
-
-  const resolvedStartIndex = 0;
-  const resolvedEndIndex = resolvedBets.length;
-  const paginatedResolvedBets = resolvedBets;
-
-  const archivedStartIndex = 0;
-  const archivedEndIndex = archivedBets.length;
-  const paginatedArchivedBets = archivedBets;
+  const navigateToMarket = (marketId: number) => {
+    navigate({ to: `/markets/${marketId}` });
+  };
 
   if (!isAuthenticated || !user) {
     return (
@@ -234,262 +230,340 @@ import { Wallet, Eye, EyeOff, Copy } from "lucide-react";
     );
   }
 
+  // Current tab data
+  const currentError = activeTab === "active" ? activeBetsError : activeTab === "resolved" ? resolvedBetsError : archivedBetsError;
+  const currentLoading = activeTab === "active" ? isLoadingActiveBets : activeTab === "resolved" ? isLoadingResolvedBets : isLoadingArchivedBets;
+  const currentPage = activeTab === "active" ? activePage : activeTab === "resolved" ? resolvedPage : archivedPage;
+  const setCurrentPage = activeTab === "active" ? setActivePage : activeTab === "resolved" ? setResolvedPage : setArchivedPage;
+  const currentBets = activeTab === "active" ? activeBets : activeTab === "resolved" ? resolvedBets : archivedBets;
+
   return (
     <div className="min-h-screen bg-background py-8">
-      <div className="max-w-3xl mx-auto px-4 space-y-6 animate-fade-in-up">
-        <Button variant="outline" onClick={() => navigate({ to: "/" })}>
+      <div className="max-w-4xl mx-auto px-4 space-y-6 animate-fade-in-up">
+        {/* Back button */}
+        <Button
+          variant="ghost"
+          className="gap-1.5 text-muted-foreground hover:text-foreground"
+          onClick={() => navigate({ to: "/" })}
+        >
+          <ArrowLeft className="h-4 w-4" />
           Back to Markets
         </Button>
 
+        {/* Profile Header — Identity + Balance */}
         <Card>
-          <CardHeader className="space-y-2">
-            <CardTitle className="text-4xl">Your Profile</CardTitle>
-            <CardDescription>Account details currently stored in your session.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
-                <p className="text-xs text-muted-foreground">Username</p>
-                <p className="text-lg font-semibold text-foreground">{user.username}</p>
+          <CardContent className="p-6">
+            <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+              {/* Left: Identity */}
+              <div className="flex items-center gap-4">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary/10 text-2xl font-bold text-primary">
+                  {user.username.charAt(0).toUpperCase()}
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-2xl font-bold text-foreground">{user.username}</h1>
+                    {isAdmin && (
+                      <Badge variant="secondary" className="text-xs">Admin</Badge>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground">{user.email}</p>
+                  <p className="text-xs text-muted-foreground">ID #{user.id}</p>
+                </div>
               </div>
-              <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
-                <p className="text-xs text-muted-foreground">Email</p>
-                <p className="text-lg font-semibold text-foreground break-all">{user.email}</p>
-              </div>
-              <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
-                <p className="text-xs text-muted-foreground">User ID</p>
-                <p className="text-lg font-semibold text-foreground">#{user.id}</p>
+
+              {/* Right: Balance */}
+              <div className="flex items-center gap-4 rounded-xl border border-emerald-500/20 dark:border-emerald-400/20 bg-emerald-500/5 px-6 py-4">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+                    Balance
+                  </p>
+                  <p className="text-3xl font-bold tracking-tight text-emerald-700 dark:text-emerald-300">
+                    ${(user.balance ?? 0).toFixed(2)}
+                  </p>
+                </div>
+                <div className="rounded-full bg-emerald-500/10 dark:bg-emerald-400/10 p-3">
+                  <Wallet className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+                </div>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-emerald-500/20 dark:border-emerald-400/20 bg-emerald-500/5">
-          <CardContent className="py-6">
-            <div className="flex items-center justify-between">
+        {/* Stats Row */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <Card>
+            <CardContent className="flex items-center gap-3 p-4">
+              <div className="rounded-lg bg-primary/10 p-2.5">
+                <CircleDot className="h-5 w-5 text-primary" />
+              </div>
               <div>
-                <p className="text-sm font-medium uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Current Balance</p>
-                <p className="mt-2 text-6xl font-bold tracking-tight text-emerald-700 dark:text-emerald-300">
-                  ${(user.balance ?? 0).toFixed(2)}
+                <p className="text-xs text-muted-foreground">Active Bets</p>
+                <p className="text-2xl font-bold text-foreground">{activeBets.length}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="flex items-center gap-3 p-4">
+              <div className="rounded-lg bg-primary/10 p-2.5">
+                <TrendingUp className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Win / Loss</p>
+                <p className="text-2xl font-bold text-foreground">
+                  <span className="text-emerald-600 dark:text-emerald-400">{totalWon}</span>
+                  <span className="text-muted-foreground mx-1">/</span>
+                  <span className="text-destructive">{totalLost}</span>
                 </p>
               </div>
-              <div className="rounded-full bg-emerald-500/10 dark:bg-emerald-400/10 p-5">
-                <Wallet className="h-10 w-10 text-emerald-600 dark:text-emerald-400" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
+          <Card>
+            <CardContent className="flex items-center gap-3 p-4">
+              <div className="rounded-lg bg-emerald-500/10 p-2.5">
+                <Trophy className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Total Won</p>
+                <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">
+                  ${totalPayout.toFixed(2)}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Tabbed Betting History */}
         <Card>
-          <CardHeader className="space-y-2">
-            <CardTitle className="text-3xl">Active Bets</CardTitle>
-            <CardDescription>
-              Your open bets with their current live odds. These values update automatically when the market changes.
-            </CardDescription>
+          <CardHeader className="pb-0">
+            <CardTitle className="text-xl">Betting History</CardTitle>
+            {/* Tab bar */}
+            <div className="flex gap-1 border-b border-border mt-3">
+              <button
+                type="button"
+                onClick={() => setActiveTab("active")}
+                className={`flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+                  activeTab === "active"
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+                }`}
+              >
+                <Clock className="h-4 w-4" />
+                Active
+                {activeBets.length > 0 && (
+                  <span className="ml-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-xs font-semibold text-primary">
+                    {activeBets.length}
+                  </span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("resolved")}
+                className={`flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+                  activeTab === "resolved"
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+                }`}
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Resolved
+              </button>
+
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("archived")}
+                  className={`flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+                    activeTab === "archived"
+                      ? "border-primary text-primary"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+                  }`}
+                >
+                  <Archive className="h-4 w-4" />
+                  Archived
+                </button>
+              )}
+            </div>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {activeBetsError && (
-              <div className="rounded-md border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                {activeBetsError}
+
+          <CardContent className="pt-4">
+            {/* Error */}
+            {currentError && (
+              <div className="rounded-md border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive mb-4">
+                {currentError}
               </div>
             )}
 
-            {isLoadingActiveBets ? (
-              <p className="text-sm text-muted-foreground">Loading active bets...</p>
-            ) : activeBets.length === 0 ? (
-              <p className="text-sm text-muted-foreground">You do not have any active bets yet.</p>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex flex-col gap-3 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
-                  <span>
-                    Showing {activeBets.length === 0 ? 0 : activeStartIndex + 1}-{activeEndIndex} active bets
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setActivePage((currentPage) => Math.max(currentPage - 1, 1))}
-                      disabled={activePage === 1}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setActivePage((currentPage) => currentPage + 1)}
-                      disabled={activeBets.length < ITEMS_PER_PAGE}
-                    >
-                      Next
-                    </Button>
-                  </div>
+            {/* Loading */}
+            {currentLoading ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">Loading...</p>
+            ) : currentBets.length === 0 ? (
+              /* Empty state */
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="rounded-full bg-muted p-3 mb-3">
+                  <Inbox className="h-6 w-6 text-muted-foreground" />
                 </div>
-
-                {paginatedActiveBets.map((bet) => (
+                <p className="text-sm text-muted-foreground">
+                  {activeTab === "active" && "No active bets yet."}
+                  {activeTab === "resolved" && "No resolved bets yet."}
+                  {activeTab === "archived" && "No archived bets."}
+                </p>
+                {activeTab === "active" && (
+                  <Button
+                    variant="link"
+                    className="mt-1 text-sm"
+                    onClick={() => navigate({ to: "/" })}
+                  >
+                    Browse markets
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {/* Bet rows */}
+                {activeTab === "active" && activeBets.map((bet) => (
                   <div
                     key={bet.id}
-                    className="flex flex-col gap-3 rounded-lg border border-border bg-background p-4 md:flex-row md:items-center md:justify-between"
+                    className="group flex flex-col gap-3 rounded-lg border border-border bg-background p-4 transition-colors duration-150 hover:bg-muted/50 cursor-pointer md:flex-row md:items-center md:justify-between"
+                    onClick={() => navigateToMarket(bet.marketId)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        navigateToMarket(bet.marketId);
+                      }
+                    }}
                   >
-                    <div className="space-y-1">
-                      <p className="text-base font-semibold text-foreground">{bet.marketTitle}</p>
-                      <p className="text-sm text-muted-foreground">Outcome: {bet.outcomeTitle}</p>
-                      <p className="text-sm text-muted-foreground">Amount: ${bet.amount.toFixed(2)}</p>
+                    <div className="space-y-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">{bet.marketTitle}</p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Badge variant="outline" className="text-xs">{bet.outcomeTitle}</Badge>
+                        <span className="text-muted-foreground">·</span>
+                        <span>${bet.amount.toFixed(2)} staked</span>
+                      </div>
                     </div>
-                    <div className="text-left md:text-right">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Current odds</p>
-                      <p className="text-2xl font-semibold text-primary">{bet.currentOdds}%</p>
+                    <div className="flex items-center gap-3 text-left md:text-right">
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Odds</p>
+                        <p className="text-xl font-bold text-primary">{bet.currentOdds}%</p>
+                      </div>
+                      <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                     </div>
                   </div>
                 ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardHeader className="space-y-2">
-            <CardTitle className="text-3xl">Resolved Bets</CardTitle>
-            <CardDescription>
-              Your completed bets, including the market, your picked outcome, and whether you won or lost.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {resolvedBetsError && (
-              <div className="rounded-md border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                {resolvedBetsError}
-              </div>
-            )}
-
-            {isLoadingResolvedBets ? (
-              <p className="text-sm text-muted-foreground">Loading resolved bets...</p>
-            ) : resolvedBets.length === 0 ? (
-              <p className="text-sm text-muted-foreground">You do not have any resolved bets yet.</p>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex flex-col gap-3 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
-                  <span>
-                    Showing {resolvedBets.length === 0 ? 0 : resolvedStartIndex + 1}-{resolvedEndIndex} resolved bets
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setResolvedPage((currentPage) => Math.max(currentPage - 1, 1))}
-                      disabled={resolvedPage === 1}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        setResolvedPage((currentPage) => currentPage + 1)
-                      }
-                      disabled={resolvedBets.length < ITEMS_PER_PAGE}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
-
-                {paginatedResolvedBets.map((bet) => (
+                {activeTab === "resolved" && resolvedBets.map((bet) => (
                   <div
                     key={bet.id}
-                    className="flex flex-col gap-3 rounded-lg border border-border bg-background p-4 md:flex-row md:items-center md:justify-between"
+                    className="group flex flex-col gap-3 rounded-lg border border-border bg-background p-4 transition-colors duration-150 hover:bg-muted/50 cursor-pointer md:flex-row md:items-center md:justify-between"
+                    onClick={() => navigateToMarket(bet.marketId)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        navigateToMarket(bet.marketId);
+                      }
+                    }}
                   >
-                    <div className="space-y-1">
-                      <p className="text-base font-semibold text-foreground">{bet.marketTitle}</p>
-                      <p className="text-sm text-muted-foreground">Outcome: {bet.outcomeTitle}</p>
+                    <div className="space-y-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">{bet.marketTitle}</p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Badge variant="outline" className="text-xs">{bet.outcomeTitle}</Badge>
+                      </div>
                     </div>
-                    <div className="flex flex-col items-start gap-1 md:items-end">
-                      <Badge variant={bet.result === "won" ? "default" : "secondary"}>
+                    <div className="flex items-center gap-3">
+                      {bet.result === "won" && bet.payout !== null && (
+                        <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                          +${bet.payout.toFixed(2)}
+                        </span>
+                      )}
+                      <Badge
+                        variant={bet.result === "won" ? "default" : "secondary"}
+                        className={bet.result === "won" ? "bg-emerald-600 dark:bg-emerald-500 text-white" : ""}
+                      >
                         {bet.result === "won" ? "Won" : "Lost"}
                       </Badge>
-                      {bet.result === "won" && bet.payout !== null && (
-                        <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">+${bet.payout.toFixed(2)}</p>
-                      )}
+                      <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                     </div>
                   </div>
                 ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
-        {isAdmin && (
-        <Card>
-          <CardHeader className="space-y-2">
-            <CardTitle className="text-3xl">Archived Bets</CardTitle>
-            <CardDescription>
-              Bets on cancelled markets. Your original stake was refunded when these markets were archived.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {archivedBetsError && (
-              <div className="rounded-md border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                {archivedBetsError}
-              </div>
-            )}
-
-            {isLoadingArchivedBets ? (
-              <p className="text-sm text-muted-foreground">Loading archived bets...</p>
-            ) : archivedBets.length === 0 ? (
-              <p className="text-sm text-muted-foreground">You do not have any archived bets.</p>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex flex-col gap-3 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
-                  <span>
-                    Showing {archivedBets.length === 0 ? 0 : archivedStartIndex + 1}-{archivedEndIndex} archived bets
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setArchivedPage((currentPage) => Math.max(currentPage - 1, 1))}
-                      disabled={archivedPage === 1}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        setArchivedPage((currentPage) => currentPage + 1)
-                      }
-                      disabled={archivedBets.length < ITEMS_PER_PAGE}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
-
-                {paginatedArchivedBets.map((bet) => (
+                {activeTab === "archived" && isAdmin && archivedBets.map((bet) => (
                   <div
                     key={bet.id}
-                    className="flex flex-col gap-3 rounded-lg border border-border bg-background p-4 md:flex-row md:items-center md:justify-between"
+                    className="group flex flex-col gap-3 rounded-lg border border-border bg-background p-4 transition-colors duration-150 hover:bg-muted/50 cursor-pointer md:flex-row md:items-center md:justify-between"
+                    onClick={() => navigateToMarket(bet.marketId)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        navigateToMarket(bet.marketId);
+                      }
+                    }}
                   >
-                    <div className="space-y-1">
-                      <p className="text-base font-semibold text-foreground">{bet.marketTitle}</p>
-                      <p className="text-sm text-muted-foreground">Outcome: {bet.outcomeTitle}</p>
-                      <p className="text-sm text-muted-foreground">Amount: ${bet.amount.toFixed(2)}</p>
+                    <div className="space-y-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">{bet.marketTitle}</p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Badge variant="outline" className="text-xs">{bet.outcomeTitle}</Badge>
+                        <span className="text-muted-foreground">·</span>
+                        <span>${bet.amount.toFixed(2)} staked</span>
+                      </div>
                     </div>
                     <Badge variant="outline" className="border-amber-500/30 dark:border-amber-400/30 text-amber-700 dark:text-amber-300">
                       Refunded
                     </Badge>
                   </div>
                 ))}
+
+                {/* Pagination */}
+                <div className="flex flex-col gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between border-t border-border pt-4 mt-4">
+                  <span>
+                    Showing {currentBets.length === 0 ? 0 : 1}-{currentBets.length} bets
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                      disabled={currentPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-xs text-muted-foreground px-2">Page {currentPage}</span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((p) => p + 1)}
+                      disabled={currentBets.length < ITEMS_PER_PAGE}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
               </div>
             )}
           </CardContent>
         </Card>
-        )}
 
+        {/* API Key */}
         <Card>
-          <CardHeader className="space-y-2">
-            <CardTitle className="text-3xl">API Key</CardTitle>
-            <CardDescription>
-              Use this key to place bets and interact with the API programmatically.
-              Pass it as the <code className="font-mono text-xs">X-Api-Key</code> header.
-            </CardDescription>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="rounded-lg bg-primary/10 p-2">
+                <Key className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">API Key</CardTitle>
+                <CardDescription>
+                  Authenticate via the <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">X-Api-Key</code> header.
+                </CardDescription>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             {apiKeyError && (
@@ -497,37 +571,48 @@ import { Wallet, Eye, EyeOff, Copy } from "lucide-react";
                 {apiKeyError}
               </div>
             )}
+
             {isLoadingApiKey ? (
               <p className="text-sm text-muted-foreground">Loading...</p>
             ) : apiKey ? (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 rounded-lg border border-border bg-muted px-3 py-2 text-sm font-mono break-all">
-                    {showApiKey ? apiKey : "pm_" + "•".repeat(44)}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 p-1">
+                  <code className="flex-1 px-3 py-2 text-sm font-mono text-foreground break-all select-all">
+                    {showApiKey ? apiKey : "pm_" + "\u2022".repeat(32)}
                   </code>
-                  <Button variant="outline" size="sm" onClick={() => setShowApiKey((v) => !v)}>
-                    {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={handleCopyApiKey}>
-                    {isCopied ? "Copied!" : <Copy className="h-4 w-4" />}
-                  </Button>
+                  <div className="flex shrink-0 gap-1 pr-1">
+                    <Button variant="ghost" size="icon-sm" onClick={() => setShowApiKey((v) => !v)}>
+                      {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                    <Button variant="ghost" size="icon-sm" onClick={handleCopyApiKey}>
+                      {isCopied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={handleGenerateApiKey} disabled={isGenerating}>
+
+                <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
+                  <Terminal className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <code className="text-xs text-muted-foreground font-mono break-all">
+                    curl -H "X-Api-Key: {"<your-key>"}" {window.location.origin}/api/markets/
+                  </code>
+                </div>
+
+                <div className="border-t border-border pt-4 flex gap-2">
+                  <Button variant="outline" size="sm" onClick={handleGenerateApiKey} disabled={isGenerating}>
                     {isGenerating ? "Regenerating..." : "Regenerate"}
                   </Button>
-                  <Button variant="destructive" onClick={handleRevokeApiKey}>
+                  <Button variant="destructive" size="sm" onClick={handleRevokeApiKey}>
                     Revoke
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground break-all">
-                  Example: <code className="font-mono">curl -H "X-Api-Key: {"<your-key>"}" {window.location.origin}/api/markets/</code>
-                </p>
               </div>
             ) : (
-              <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">No API key generated yet.</p>
-                <Button onClick={handleGenerateApiKey} disabled={isGenerating}>
+              <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-8">
+                <div className="rounded-full bg-muted p-3 mb-3">
+                  <Key className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <p className="text-sm text-muted-foreground mb-3">No API key generated yet.</p>
+                <Button size="sm" onClick={handleGenerateApiKey} disabled={isGenerating}>
                   {isGenerating ? "Generating..." : "Generate API Key"}
                 </Button>
               </div>
@@ -541,4 +626,7 @@ import { Wallet, Eye, EyeOff, Copy } from "lucide-react";
 
 export const Route = createFileRoute("/profile")({
   component: ProfilePage,
+  validateSearch: (search: Record<string, unknown>) => ({
+    tab: (["active", "resolved", "archived"].includes(search.tab as string) ? search.tab : "active") as BetTab,
+  }),
 });

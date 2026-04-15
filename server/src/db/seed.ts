@@ -1,198 +1,469 @@
 import { Database } from "bun:sqlite";
+import { faker } from "@faker-js/faker";
+import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import * as schema from "./schema";
 import { hashPassword } from "../lib/auth";
+import { calculateUserWinnings } from "../lib/odds";
 
-const db = drizzle(new Database(process.env.DB_FILE_NAME || "prediction_market.db"), {
+const db = drizzle(new Database(process.env.DB_FILE_NAME || "database.sqlite"), {
   schema,
 });
 
-const USERS = [
-  { username: "alice", email: "alice@example.com", password: "password123" },
-  { username: "bob", email: "bob@example.com", password: "password456" },
-  { username: "charlie", email: "charlie@example.com", password: "password789" },
-];
+const USER_COUNT = 5_000;
+const MARKET_COUNT = 3_000;
+const SHARED_PASSWORD = "password123";
+const USER_INSERT_BATCH_SIZE = 250;
+const BET_INSERT_BATCH_SIZE = 1_000;
+const MARKET_CATEGORIES = [
+  "crypto",
+  "sports",
+  "politics",
+  "business",
+  "science",
+  "weather",
+] as const;
+const YES_NO_OUTCOMES = ["Yes", "No"];
+const MARKET_STATUS_OPTIONS = ["active", "active", "active", "resolved"] as const;
 
-const ADMIN_USER = {
-  username: "admin",
-  email: "admin@example.com",
-  password: "admin123",
-  role: "admin" as const,
+type MarketStatus = (typeof MARKET_STATUS_OPTIONS)[number];
+
+type UserInsert = typeof schema.usersTable.$inferInsert;
+type UserRow = typeof schema.usersTable.$inferSelect;
+type MarketInsert = typeof schema.marketsTable.$inferInsert;
+type MarketOutcomeInsert = typeof schema.marketOutcomesTable.$inferInsert;
+type BetInsert = typeof schema.betsTable.$inferInsert;
+
+type SeededUser = {
+  id: number;
+  username: string;
+  email: string;
+  password: string;
+  remainingBalance: number;
 };
 
-const MARKETS = [
-  {
-    title: "Will Bitcoin reach $100k by end of 2024?",
-    description: "Bitcoin price prediction for the end of the year",
-    outcomes: ["Yes", "No"],
-  },
-  {
-    title: "Will it rain tomorrow in NYC?",
-    description: "Weather prediction for New York City",
-    outcomes: ["Yes", "No", "Maybe"],
-  },
-  {
-    title: "Who will win the 2024 US Presidential Election?",
-    description: "Political prediction market",
-    outcomes: ["Candidate A", "Candidate B", "Other"],
-  },
-];
+type GeneratedMarket = {
+  title: string;
+  description: string;
+  status: MarketStatus;
+  outcomes: readonly string[];
+};
+
+type CreatedMarket = {
+  id: number;
+  title: string;
+  status: MarketStatus;
+  outcomeIds: number[];
+};
+
+faker.seed(20260311);
+
+function chunkArray<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+
+  return chunks;
+}
+
+function createRandomUser(runId: string, index: number): UserInsert {
+  const sex = faker.person.sexType();
+  const firstName = faker.person.firstName(sex);
+  const lastName = faker.person.lastName();
+  const usernameBase = `${firstName}.${lastName}`.toLowerCase().replace(/[^a-z0-9]+/g, ".");
+  const username = `${usernameBase}.${runId}.${index}`;
+  const email = faker.internet.email({
+    firstName,
+    lastName,
+    provider: "seed.local",
+  });
+  const normalizedEmail = `${email.split("@")[0]}.${runId}.${index}@seed.local`.toLowerCase();
+
+  return {
+    username,
+    email: normalizedEmail,
+    passwordHash: "",
+  };
+}
+
+function createMarketTitle(category: (typeof MARKET_CATEGORIES)[number]) {
+  switch (category) {
+    case "crypto":
+      return `Will ${faker.finance.currencyCode()} trade above ${faker.number.int({ min: 20, max: 250 })} by ${faker.date
+        .soon({ days: 180 })
+        .toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}?`;
+    case "sports":
+      return `Will the ${faker.helpers.arrayElement(["Lions", "Storm", "Falcons", "Tigers", "Sharks"])} win ${faker.helpers.arrayElement(["their next match", "the division", "the championship"])}?`;
+    case "politics":
+      return `Will ${faker.location.city()} approve ${faker.helpers.arrayElement(["the housing measure", "the transit bond", "the tax proposal", "the school budget"])} this year?`;
+    case "business":
+      return `Will ${faker.company.name()} launch ${faker.helpers.arrayElement(["an IPO", "a new AI product", "a mobile app", "a subscription tier"])} before Q${faker.number.int({ min: 2, max: 4 })}?`;
+    case "science":
+      return `Will ${faker.helpers.arrayElement(["fusion", "gene therapy", "battery tech", "space robotics"])} hit ${faker.helpers.arrayElement(["a public milestone", "commercial rollout", "regulatory approval", "a new record"])} this year?`;
+    case "weather":
+      return `Will ${faker.location.city()} record ${faker.helpers.arrayElement(["rain", "snow", "temperatures above 35C", "temperatures below -5C"])} this month?`;
+  }
+}
+
+function createMarketDescription(category: (typeof MARKET_CATEGORIES)[number]) {
+  switch (category) {
+    case "crypto":
+      return "Speculation on a major digital asset crossing a specific price target before the deadline.";
+    case "sports":
+      return "A sports market based on an upcoming result with plenty of fan-driven volume.";
+    case "politics":
+      return "A local politics market that resolves using the official public election or vote result.";
+    case "business":
+      return "A company milestone market focused on launches, capital events, or other business developments.";
+    case "science":
+      return "A research and innovation market driven by publicly reported breakthroughs and milestones.";
+    case "weather":
+      return "A weather market tied to publicly recorded local conditions over a defined time window.";
+  }
+}
+
+function createMarketOutcomes(category: (typeof MARKET_CATEGORIES)[number]) {
+  if (category === "sports") {
+    return faker.helpers.arrayElement([
+      ["Win", "Lose"],
+      ["Yes", "No"],
+      ["Win in regulation", "Win after overtime", "No win"],
+    ]);
+  }
+
+  if (category === "politics") {
+    return faker.helpers.arrayElement([
+      ["Pass", "Fail"],
+      ["Yes", "No"],
+      ["Under 50%", "50%-60%", "Over 60%"],
+    ]);
+  }
+
+  if (category === "crypto" || category === "business") {
+    return faker.helpers.arrayElement([
+      YES_NO_OUTCOMES,
+      ["Below target", "Hits target", "Exceeds target"],
+    ]);
+  }
+
+  return faker.helpers.arrayElement([YES_NO_OUTCOMES, ["Yes", "No", "Unclear"]]);
+}
+
+function createRandomMarket(): GeneratedMarket {
+  const category = faker.helpers.arrayElement(MARKET_CATEGORIES);
+
+  return {
+    title: createMarketTitle(category),
+    description: createMarketDescription(category),
+    status: faker.helpers.arrayElement(MARKET_STATUS_OPTIONS),
+    outcomes: createMarketOutcomes(category),
+  };
+}
 
 async function deleteAllData() {
-  console.log("🗑️  Deleting all data...");
+  console.log("Deleting all data...");
 
-  // Delete in order (respecting foreign keys)
   await db.delete(schema.betsTable);
-  console.log("  ✓ Deleted bets");
-
   await db.delete(schema.marketOutcomesTable);
-  console.log("  ✓ Deleted market outcomes");
-
   await db.delete(schema.marketsTable);
-  console.log("  ✓ Deleted markets");
-
   await db.delete(schema.usersTable);
-  console.log("  ✓ Deleted users");
 
-  console.log("✅ All data deleted\n");
+  console.log("All data deleted.\n");
+}
+
+async function insertUsers() {
+  console.log(`Creating ${USER_COUNT} users...`);
+
+  const passwordHash = await hashPassword(SHARED_PASSWORD);
+  const runId = faker.string.alphanumeric({ length: 6, casing: "lower" });
+  const userValues = Array.from({ length: USER_COUNT }, (_, index) => {
+    const user = createRandomUser(runId, index + 1);
+    return {
+      ...user,
+      passwordHash,
+    };
+  });
+
+  const insertedUsers: UserRow[] = [];
+
+  for (const batch of chunkArray(userValues, USER_INSERT_BATCH_SIZE)) {
+    const created = await db.insert(schema.usersTable).values(batch).returning();
+    insertedUsers.push(...created);
+  }
+
+  const seededUsers: SeededUser[] = insertedUsers.map((user) => ({
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    password: SHARED_PASSWORD,
+    remainingBalance: 1000,
+  }));
+
+  console.log(`Created ${seededUsers.length} users.`);
+
+  return seededUsers;
+}
+
+async function insertMarkets(users: SeededUser[]) {
+  console.log(`\nCreating ${MARKET_COUNT} markets with outcomes...`);
+
+  const createdMarkets: CreatedMarket[] = [];
+  let createdOutcomeCount = 0;
+
+  for (let index = 0; index < MARKET_COUNT; index++) {
+    const marketData = createRandomMarket();
+    const creator = faker.helpers.arrayElement(users);
+    const marketInsert: MarketInsert = {
+      title: marketData.title,
+      description: marketData.description,
+      status: marketData.status,
+      createdBy: creator.id,
+    };
+
+    const [createdMarket] = await db.insert(schema.marketsTable).values(marketInsert).returning();
+    const outcomeValues: MarketOutcomeInsert[] = marketData.outcomes.map((title, position) => ({
+      marketId: createdMarket!.id,
+      title,
+      position,
+    }));
+    const createdOutcomes = await db
+      .insert(schema.marketOutcomesTable)
+      .values(outcomeValues)
+      .returning();
+
+    createdOutcomeCount += createdOutcomes.length;
+
+    const outcomeIds = createdOutcomes.map((outcome) => outcome.id);
+
+    if (marketData.status === "resolved") {
+      const resolvedOutcomeId = faker.helpers.arrayElement(outcomeIds);
+
+      await db
+        .update(schema.marketsTable)
+        .set({
+          resolvedOutcomeId,
+          resolvedBy: creator.id,
+          resolvedAt: faker.date.recent({ days: 30 }),
+        })
+        .where(eq(schema.marketsTable.id, createdMarket!.id));
+    }
+
+    createdMarkets.push({
+      id: createdMarket!.id,
+      title: createdMarket!.title,
+      status: marketData.status,
+      outcomeIds,
+    });
+
+    if ((index + 1) % 100 === 0 || index === MARKET_COUNT - 1) {
+      console.log(`  ${index + 1}/${MARKET_COUNT} markets created`);
+    }
+  }
+
+  console.log(`Created ${createdMarkets.length} markets and ${createdOutcomeCount} outcomes.`);
+
+  return {
+    createdMarkets,
+    createdOutcomeCount,
+  };
+}
+
+function createBetAmount(user: SeededUser) {
+  if (user.remainingBalance <= 5) {
+    return 0;
+  }
+
+  const maxAmount = Math.min(user.remainingBalance, 250);
+  const minAmount = Math.min(5, maxAmount);
+
+  return faker.number.int({
+    min: minAmount,
+    max: maxAmount,
+    multipleOf: 5,
+  });
+}
+
+async function insertBets(users: SeededUser[], markets: CreatedMarket[]) {
+  console.log("\nCreating bets...");
+
+  const betValues: BetInsert[] = [];
+
+  for (const market of markets) {
+    const participantCount = faker.number.int({ min: 8, max: 40 });
+    const participants = faker.helpers.arrayElements(
+      users.filter((user) => user.remainingBalance >= 5),
+      participantCount,
+    );
+
+    for (const user of participants) {
+      const betCountForUser = faker.number.int({ min: 1, max: 3 });
+
+      for (let index = 0; index < betCountForUser; index++) {
+        if (user.remainingBalance < 5) {
+          break;
+        }
+
+        const amount = createBetAmount(user);
+
+        if (amount < 5) {
+          break;
+        }
+
+        const outcomeId = faker.helpers.arrayElement(market.outcomeIds);
+        const createdAt = faker.date.between({
+          from: new Date("2025-01-01T00:00:00.000Z"),
+          to: new Date(),
+        });
+
+        betValues.push({
+          userId: user.id,
+          marketId: market.id,
+          outcomeId,
+          amount,
+          createdAt,
+        });
+
+        user.remainingBalance -= amount;
+      }
+    }
+  }
+
+  for (const batch of chunkArray(betValues, BET_INSERT_BATCH_SIZE)) {
+    await db.insert(schema.betsTable).values(batch);
+  }
+
+  // Update user balances in the database to reflect bets placed
+  console.log("Updating user balances...");
+  const totalBetByUser = new Map<number, number>();
+  for (const bet of betValues) {
+    totalBetByUser.set(bet.userId, (totalBetByUser.get(bet.userId) ?? 0) + bet.amount);
+  }
+  await db.transaction(async (tx) => {
+    for (const [userId, totalBet] of totalBetByUser) {
+      await tx
+        .update(schema.usersTable)
+        .set({ balance: sql`${schema.usersTable.balance} - ${totalBet}` })
+        .where(eq(schema.usersTable.id, userId));
+    }
+  });
+
+  console.log(`Created ${betValues.length} bets.`);
+
+  return betValues.length;
+}
+
+function printSeedSummary(
+  users: SeededUser[],
+  marketCount: number,
+  outcomeCount: number,
+  betCount: number,
+) {
+  console.log("\n============================================================");
+  console.log("SEEDING COMPLETE");
+  console.log("============================================================");
+  console.log(`Users:    ${users.length}`);
+  console.log(`Markets:  ${marketCount}`);
+  console.log(`Outcomes: ${outcomeCount}`);
+  console.log(`Bets:     ${betCount}`);
+
+  console.log("\nSample login credentials:");
+  for (const user of users.slice(0, 5)) {
+    console.log(`  ${user.email} / ${user.password}`);
+  }
+
+  console.log("\nShared password for all seeded users:");
+  console.log(`  ${SHARED_PASSWORD}`);
+  console.log("============================================================\n");
+}
+
+async function distributePayouts(markets: CreatedMarket[]) {
+  console.log("\nDistributing payouts for resolved markets...");
+
+  const resolvedMarkets = markets.filter((m) => m.status === "resolved");
+  let totalPayouts = 0;
+  let marketsProcessed = 0;
+
+  // Accumulate all balance changes per user
+  const balanceChanges = new Map<number, number>();
+
+  for (const market of resolvedMarkets) {
+    // Get the resolved outcome
+    const marketRow = await db.query.marketsTable.findFirst({
+      where: eq(schema.marketsTable.id, market.id),
+    });
+    if (!marketRow?.resolvedOutcomeId) continue;
+
+    // Get all bets for this market
+    const allBets = await db.query.betsTable.findMany({
+      where: eq(schema.betsTable.marketId, market.id),
+    });
+    if (allBets.length === 0) continue;
+
+    const totalPool = allBets.reduce((sum, b) => sum + b.amount, 0);
+    const winningBets = allBets.filter((b) => b.outcomeId === marketRow.resolvedOutcomeId);
+    const winningPool = winningBets.reduce((sum, b) => sum + b.amount, 0);
+
+    if (winningPool === 0) continue;
+
+    // Calculate and record payouts
+    for (const bet of winningBets) {
+      const payout = calculateUserWinnings(bet.amount, winningPool, totalPool);
+      balanceChanges.set(bet.userId, (balanceChanges.get(bet.userId) ?? 0) + payout);
+      totalPayouts++;
+    }
+
+    // Update payout column on winning bets
+    for (const bet of winningBets) {
+      const payout = calculateUserWinnings(bet.amount, winningPool, totalPool);
+      await db
+        .update(schema.betsTable)
+        .set({ payout })
+        .where(eq(schema.betsTable.id, bet.id));
+    }
+
+    marketsProcessed++;
+    if (marketsProcessed % 100 === 0 || marketsProcessed === resolvedMarkets.length) {
+      console.log(`  ${marketsProcessed}/${resolvedMarkets.length} markets processed`);
+    }
+  }
+
+  // Apply all balance changes in a single transaction
+  await db.transaction(async (tx) => {
+    for (const [userId, amount] of balanceChanges) {
+      await tx
+        .update(schema.usersTable)
+        .set({ balance: sql`${schema.usersTable.balance} + ${amount}` })
+        .where(eq(schema.usersTable.id, userId));
+    }
+  });
+
+  console.log(`Distributed ${totalPayouts} payouts across ${marketsProcessed} resolved markets.`);
+}
+
+async function insertAdmin() {
+  console.log("Creating admin user...");
+  const adminPasswordHash = await hashPassword("admin123");
+  await db.insert(schema.usersTable).values({
+    username: "admin",
+    email: "admin@example.com",
+    passwordHash: adminPasswordHash,
+    role: "admin",
+  });
+  console.log("  admin@example.com / admin123");
 }
 
 async function seedDatabase() {
-  console.log("🌱 Seeding database...\n");
+  console.log("Seeding database...\n");
 
-  const createdUsers: Array<{
-    id: number;
-    username: string;
-    email: string;
-    password: string;
-  }> = [];
+  const users = await insertUsers();
+  const { createdMarkets, createdOutcomeCount } = await insertMarkets(users);
+  const betCount = await insertBets(users, createdMarkets);
+  await distributePayouts(createdMarkets);
+  await insertAdmin();
 
-  // 1. Create users
-  console.log("👤 Creating users...");
-  for (const user of USERS) {
-    const passwordHash = await hashPassword(user.password);
-    const created = await db
-      .insert(schema.usersTable)
-      .values({
-        username: user.username,
-        email: user.email,
-        passwordHash,
-      })
-      .returning();
-
-    createdUsers.push({
-      id: created[0].id,
-      username: user.username,
-      email: user.email,
-      password: user.password,
-    });
-    console.log(`  ✓ Created user: ${user.username} (${user.email})`);
-  }
-
-  // Create admin user
-  const adminPasswordHash = await hashPassword(ADMIN_USER.password);
-  const adminCreated = await db
-    .insert(schema.usersTable)
-    .values({
-      username: ADMIN_USER.username,
-      email: ADMIN_USER.email,
-      passwordHash: adminPasswordHash,
-      role: "admin",
-    })
-    .returning();
-
-  createdUsers.push({
-    id: adminCreated[0].id,
-    username: ADMIN_USER.username,
-    email: ADMIN_USER.email,
-    password: ADMIN_USER.password,
-  });
-  console.log(`  ✓ Created admin user: ${ADMIN_USER.username} (${ADMIN_USER.email})`);
-
-  // 2. Create markets and outcomes
-  console.log("\n📊 Creating markets...");
-  let marketCount = 0;
-  let outcomeCount = 0;
-
-  for (let i = 0; i < MARKETS.length; i++) {
-    const marketData = MARKETS[i];
-    const createdBy = createdUsers[i % createdUsers.length].id;
-
-    const market = await db
-      .insert(schema.marketsTable)
-      .values({
-        title: marketData.title,
-        description: marketData.description,
-        createdBy,
-      })
-      .returning();
-
-    marketCount++;
-    console.log(`  ✓ Created market: "${marketData.title}"`);
-
-    // Create outcomes for this market
-    for (let j = 0; j < marketData.outcomes.length; j++) {
-      await db.insert(schema.marketOutcomesTable).values({
-        marketId: market[0].id,
-        title: marketData.outcomes[j],
-        position: j,
-      });
-      outcomeCount++;
-    }
-    console.log(`    └─ ${marketData.outcomes.length} outcomes created`);
-  }
-
-  // 3. Place some test bets
-  console.log("\n💰 Creating sample bets...");
-  let betCount = 0;
-
-  // Get all markets and outcomes
-  const markets = await db.query.marketsTable.findMany({
-    with: { outcomes: true },
-  });
-
-  for (const market of markets) {
-    for (const user of createdUsers) {
-      // Each user bets on the first outcome of every market
-      const outcome = market.outcomes[0];
-      const betAmount = 50;
-
-      await db.insert(schema.betsTable).values({
-        userId: user.id,
-        marketId: market.id,
-        outcomeId: outcome.id,
-        amount: betAmount,
-      });
-
-      betCount++;
-    }
-
-    console.log(`  ✓ Created ${createdUsers.length} bets on "${market.title}"`);
-  }
-
-  console.log("\n" + "=".repeat(60));
-  console.log("✅ SEEDING COMPLETE!");
-  console.log("=".repeat(60));
-  console.log(`\nCreated:`);
-  console.log(`  • ${createdUsers.length} users`);
-  console.log(`  • ${marketCount} markets`);
-  console.log(`  • ${outcomeCount} outcomes`);
-  console.log(`  • ${betCount} bets`);
-
-  console.log("\n" + "=".repeat(60));
-  console.log("🔑 TEST CREDENTIALS (for login):");
-  console.log("=".repeat(60));
-
-  for (const user of createdUsers) {
-    console.log(`\n  Username: ${user.username}`);
-    console.log(`  Email:    ${user.email}`);
-    console.log(`  Password: ${user.password}`);
-  }
-
-  console.log("\n" + "=".repeat(60));
-  console.log(
-    "\n✨ Database is ready! Start the app and login with any of the above credentials.\n",
-  );
+  printSeedSummary(users, createdMarkets.length, createdOutcomeCount, betCount);
 }
 
 async function main() {
@@ -207,7 +478,7 @@ async function main() {
     await deleteAllData();
   } else {
     console.log("Usage:");
-    console.log("  bun run db:seed        # Seed with test data");
+    console.log("  bun run db:seed        # Seed with generated fake data");
     console.log("  bun run db:reset       # Delete all and reseed");
     console.log("  bun run db:delete      # Delete all data");
   }

@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
-import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useParams, useRouter } from "@tanstack/react-router";
 import type { Market } from "@/lib/api";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
@@ -38,6 +38,7 @@ function formatChance(chancePercent: number): string {
 function MarketDetailPage() {
   const { id } = useParams({ from: "/markets/$id" });
   const navigate = useNavigate();
+  const router = useRouter();
   const { isAuthenticated, user, refreshUserBalance } = useAuth();
   const [market, setMarket] = useState<Market | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -204,7 +205,7 @@ function MarketDetailPage() {
     <div className="min-h-screen bg-background py-8">
       <div className="max-w-3xl mx-auto px-4 space-y-6 animate-fade-in-up">
         {/* Header */}
-        <Button variant="outline" onClick={() => navigate({ to: "/" })}>
+        <Button variant="outline" onClick={() => router.history.back()}>
           ← Back
         </Button>
 
@@ -212,9 +213,9 @@ function MarketDetailPage() {
           <CardHeader>
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <CardTitle className="text-4xl">{market.title}</CardTitle>
+                <CardTitle className="text-2xl">{market.title}</CardTitle>
                 {market.description && (
-                  <CardDescription className="text-lg mt-2">{market.description}</CardDescription>
+                  <CardDescription className="text-sm mt-2">{market.description}</CardDescription>
                 )}
               </div>
               <Badge
@@ -256,16 +257,16 @@ function MarketDetailPage() {
                 >
                   <div className="flex justify-between items-center">
                     <div className="flex-1">
-                      <h4 className="font-semibold">{outcome.title}</h4>
+                      <h4 className="text-base font-semibold">{outcome.title}</h4>
                       <p className="text-sm text-muted-foreground mt-1">
                         Total bets: ${outcome.totalBets.toFixed(2)}
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <p className="text-xs font-semibold text-muted-foreground md:text-sm">{formatDecimalOdds(outcome.odds)}</p>
+                      <p className="text-xs font-semibold text-muted-foreground">{formatDecimalOdds(outcome.odds)}</p>
                       <Badge
                         variant="outline"
-                        className="h-auto min-h-12 min-w-18 justify-center overflow-visible px-3 py-2 text-[28px] font-bold leading-[1.1] md:text-[28px]"
+                        className="h-auto min-h-8 min-w-14 justify-center px-2.5 py-1 text-base font-bold"
                       >
                         {formatChance(outcome.odds)}
                       </Badge>

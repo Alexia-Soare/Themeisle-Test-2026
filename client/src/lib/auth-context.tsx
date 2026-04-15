@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { User, api } from "./api";
 
 interface AuthContextType {
@@ -56,7 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("auth:logout", handleAuthLogout);
   }, []);
 
-  const login = (newUser: User) => {
+  const login = useCallback((newUser: User) => {
     setUser(newUser);
     localStorage.setItem("auth_token", newUser.token);
     localStorage.setItem(
@@ -69,15 +69,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         balance: newUser.balance,
       }),
     );
-  };
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setUser(null);
     localStorage.removeItem("auth_token");
     localStorage.removeItem("auth_user");
-  };
+  }, []);
 
-  const refreshUserBalance = async () => {
+  const refreshUserBalance = useCallback(async () => {
     try {
       const serverUser = await api.getMe();
       setUser((currentUser) => (currentUser ? { ...currentUser, balance: serverUser.balance } : null));
@@ -93,19 +93,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error("Failed to refresh user balance:", error);
     }
-  };
+  }, []);
+
+  const value = useMemo<AuthContextType>(
+    () => ({
+      user,
+      isLoading,
+      login,
+      logout,
+      isAuthenticated: !!user,
+      refreshUserBalance,
+    }),
+    [user, isLoading, login, logout, refreshUserBalance],
+  );
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isLoading,
-        login,
-        logout,
-        isAuthenticated: !!user,
-        refreshUserBalance,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

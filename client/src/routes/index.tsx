@@ -171,7 +171,7 @@ function DashboardPage() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="min-w-40">
-                <DropdownMenuItem onClick={() => navigate({ to: "/profile" })}>
+                <DropdownMenuItem onClick={() => navigate({ to: "/profile", search: { tab: "active" } })}>
                   View Profile
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate({ to: "/auth/logout" })}>
@@ -244,7 +244,7 @@ function DashboardPage() {
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {paginatedMarkets.map((market, index) => (
-                <div key={`anim-${market.id}`} className="animate-fade-in-up" style={{ animationDelay: `${index * 50}ms` }}>
+                <div key={`anim-${market.id}`} className="animate-fade-in-up h-full" style={{ animationDelay: `${index * 50}ms` }}>
                   <MarketCard key={market.id} market={market} />
                 </div>
               ))}

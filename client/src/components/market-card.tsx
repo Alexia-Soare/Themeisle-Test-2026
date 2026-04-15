@@ -18,7 +18,7 @@ function MarketCardComponent({ market }: MarketCardProps) {
 
   return (
     <Card
-      className="cursor-pointer rounded-xl transition-all duration-200 hover:shadow-lg hover:-translate-y-1 hover:shadow-primary/5"
+      className="cursor-pointer rounded-xl transition-all duration-200 hover:shadow-lg hover:-translate-y-1 hover:shadow-primary/5 flex flex-col h-full"
       onClick={handleCardClick}
       role="button"
       tabIndex={0}
@@ -32,7 +32,7 @@ function MarketCardComponent({ market }: MarketCardProps) {
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <CardTitle className="text-xl">{market.title}</CardTitle>
+            <CardTitle className="text-xl line-clamp-1">{market.title}</CardTitle>
             <CardDescription>By: {market.creator || "Unknown"}</CardDescription>
           </div>
           <Badge
