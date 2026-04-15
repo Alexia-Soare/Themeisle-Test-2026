@@ -523,15 +523,6 @@ export async function handleResolveMarket({
     return { error: "Outcome not found in this market" };
   }
 
-  // Gather bets to calculate payouts
-  const allBets = await db.query.betsTable.findMany({
-    where: eq(betsTable.marketId, marketId),
-  });
-
-  const totalPool = allBets.reduce((sum, b) => sum + b.amount, 0);
-  const winningBets = allBets.filter((b) => b.outcomeId === outcomeId);
-  const winningPool = winningBets.reduce((sum, b) => sum + b.amount, 0);
-
   const txResult = await db.transaction(async (tx) => {
     // Atomically set status to "resolved" only if still "active" (prevents double resolution)
     const updated = await tx
@@ -548,6 +539,15 @@ export async function handleResolveMarket({
     if (updated.length === 0) {
       return { error: "Market is not active" } as const;
     }
+
+    // Gather bets inside the transaction so no new bets can sneak in
+    const allBets = await tx.query.betsTable.findMany({
+      where: eq(betsTable.marketId, marketId),
+    });
+
+    const totalPool = allBets.reduce((sum, b) => sum + b.amount, 0);
+    const winningBets = allBets.filter((b) => b.outcomeId === outcomeId);
+    const winningPool = winningBets.reduce((sum, b) => sum + b.amount, 0);
 
     // Credit each winner
     for (const bet of winningBets) {
@@ -601,11 +601,6 @@ export async function handleArchiveMarket({
     return { error: "Only active markets can be archived" };
   }
 
-  // Get all bets to refund
-  const allBets = await db.query.betsTable.findMany({
-    where: eq(betsTable.marketId, marketId),
-  });
-
   const txResult = await db.transaction(async (tx) => {
     // Atomically set status to "archived" only if still "active" (prevents double archive)
     const updated = await tx
@@ -617,6 +612,11 @@ export async function handleArchiveMarket({
     if (updated.length === 0) {
       return { error: "Only active markets can be archived" } as const;
     }
+
+    // Get all bets inside transaction so no new bets can sneak in
+    const allBets = await tx.query.betsTable.findMany({
+      where: eq(betsTable.marketId, marketId),
+    });
 
     // Refund every bettor their original amount
     for (const bet of allBets) {

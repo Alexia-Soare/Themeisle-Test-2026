@@ -55,9 +55,14 @@ async function getBetsPerOutcome(outcomeIds: Array<number>) {
   }));
 }
 
-async function enrichMarket(market: MarketQueryResult): Promise<EnrichedMarket> {
-  const betsPerOutcome = await getBetsPerOutcome(market.outcomes.map((outcome) => outcome.id));
-  const totalMarketBets = betsPerOutcome.reduce((sum, entry) => sum + entry.totalBets, 0);
+function enrichMarketWithBets(
+  market: MarketQueryResult,
+  betMap: Map<number, number>,
+): EnrichedMarket {
+  const totalMarketBets = market.outcomes.reduce(
+    (sum, outcome) => sum + (betMap.get(outcome.id) ?? 0),
+    0,
+  );
 
   return {
     id: market.id,
@@ -66,7 +71,7 @@ async function enrichMarket(market: MarketQueryResult): Promise<EnrichedMarket> 
     status: market.status,
     creator: market.creator?.username,
     outcomes: market.outcomes.map((outcome) => {
-      const outcomeBets = betsPerOutcome.find((entry) => entry.outcomeId === outcome.id)?.totalBets ?? 0;
+      const outcomeBets = betMap.get(outcome.id) ?? 0;
 
       return {
         id: outcome.id,
@@ -77,6 +82,12 @@ async function enrichMarket(market: MarketQueryResult): Promise<EnrichedMarket> 
     }),
     totalMarketBets,
   };
+}
+
+async function enrichMarket(market: MarketQueryResult): Promise<EnrichedMarket> {
+  const betsPerOutcome = await getBetsPerOutcome(market.outcomes.map((outcome) => outcome.id));
+  const betMap = new Map(betsPerOutcome.map((entry) => [entry.outcomeId, entry.totalBets]));
+  return enrichMarketWithBets(market, betMap);
 }
 
 export async function listEnrichedMarkets(
@@ -98,7 +109,12 @@ export async function listEnrichedMarkets(
     offset,
   });
 
-  return Promise.all(markets.map((market) => enrichMarket(market as MarketQueryResult)));
+  // Batch: collect all outcome IDs across all markets, one query for all
+  const allOutcomeIds = markets.flatMap((m) => m.outcomes.map((o) => o.id));
+  const betsPerOutcome = await getBetsPerOutcome(allOutcomeIds);
+  const betMap = new Map(betsPerOutcome.map((entry) => [entry.outcomeId, entry.totalBets]));
+
+  return markets.map((market) => enrichMarketWithBets(market as MarketQueryResult, betMap));
 }
 
 export async function getEnrichedMarket(marketId: number): Promise<EnrichedMarket | null> {

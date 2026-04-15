@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import type { ActiveBetSummary, ArchivedBetSummary, Market, ResolvedBetSummary } from "@/lib/api";
 import { api } from "@/lib/api";
@@ -53,37 +53,34 @@ function ProfilePage() {
     .filter((b) => b.result === "won" && b.payout !== null)
     .reduce((sum, b) => sum + (b.payout ?? 0), 0);
 
-  const loadProfileBets = useCallback(async (options?: { background?: boolean }) => {
-    const isBackground = options?.background === true;
+  const hasLoadedInitial = useRef(false);
 
-    // Only fetch the active tab's data
-    if (activeTab === "active") {
+  const loadTabBets = useCallback(async (tab: BetTab, page: number, isBackground = false) => {
+    if (tab === "active") {
       if (!isBackground) setIsLoadingActiveBets(true);
       setActiveBetsError(null);
       try {
-        const data = await api.getActiveBets(ITEMS_PER_PAGE, (activePage - 1) * ITEMS_PER_PAGE);
-        setActiveBets(data);
+        setActiveBets(await api.getActiveBets(ITEMS_PER_PAGE, (page - 1) * ITEMS_PER_PAGE));
       } catch (err) {
         setActiveBetsError(err instanceof Error ? err.message : "Failed to load active bets");
       } finally {
         if (!isBackground) setIsLoadingActiveBets(false);
       }
-    } else if (activeTab === "resolved") {
+    } else if (tab === "resolved") {
       if (!isBackground) setIsLoadingResolvedBets(true);
       setResolvedBetsError(null);
       try {
-        const data = await api.getResolvedBets(ITEMS_PER_PAGE, (resolvedPage - 1) * ITEMS_PER_PAGE);
-        setResolvedBets(data);
+        setResolvedBets(await api.getResolvedBets(ITEMS_PER_PAGE, (page - 1) * ITEMS_PER_PAGE));
       } catch (err) {
         setResolvedBetsError(err instanceof Error ? err.message : "Failed to load resolved bets");
       } finally {
         if (!isBackground) setIsLoadingResolvedBets(false);
       }
-    } else if (activeTab === "archived" && isAdmin) {
+    } else if (tab === "archived" && isAdmin) {
       if (!isBackground) setIsLoadingArchivedBets(true);
       setArchivedBetsError(null);
       try {
-        const data = await api.getArchivedBets(ITEMS_PER_PAGE, (archivedPage - 1) * ITEMS_PER_PAGE);
+        const data = await api.getArchivedBets(ITEMS_PER_PAGE, (page - 1) * ITEMS_PER_PAGE);
         setArchivedBets(data);
       } catch (err) {
         setArchivedBetsError(err instanceof Error ? err.message : "Failed to load archived bets");
@@ -91,11 +88,11 @@ function ProfilePage() {
         if (!isBackground) setIsLoadingArchivedBets(false);
       }
     }
-  }, [activeTab, activePage, resolvedPage, archivedPage, isAdmin]);
+  }, [isAdmin]);
 
-  const handleMarketUpdate = useCallback((updatedMarket: Market) => {
+  const handleMarketUpdate = useEffectEvent((updatedMarket: Market) => {
     if (updatedMarket.status !== "active") {
-      void loadProfileBets({ background: true });
+      void loadTabBets("active", activePage, true);
       return;
     }
 
@@ -124,7 +121,7 @@ function ProfilePage() {
 
       return changedCount === 0 ? currentBets : nextBets;
     });
-  }, [loadProfileBets]);
+  });
 
   const activeMarketIds = useMemo(
     () => [...new Set(activeBets.map((bet) => bet.marketId))].sort((left, right) => left - right),
@@ -146,11 +143,22 @@ function ProfilePage() {
       setActivePage(1);
       setResolvedPage(1);
       setArchivedPage(1);
+      hasLoadedInitial.current = false;
       return;
     }
 
-    void loadProfileBets();
-  }, [isAuthenticated, activeTab, activePage, resolvedPage, archivedPage, loadProfileBets]);
+    if (!hasLoadedInitial.current) {
+      hasLoadedInitial.current = true;
+      void Promise.all([
+        loadTabBets("active", activePage),
+        loadTabBets("resolved", resolvedPage),
+        loadTabBets("archived", archivedPage),
+      ]);
+    } else {
+      const page = activeTab === "active" ? activePage : activeTab === "resolved" ? resolvedPage : archivedPage;
+      void loadTabBets(activeTab, page);
+    }
+  }, [isAuthenticated, activeTab, activePage, resolvedPage, archivedPage, loadTabBets]);
 
   useEffect(() => {
     if (!isAuthenticated || activeMarketIds.length === 0) {
@@ -164,7 +172,7 @@ function ProfilePage() {
     return () => {
       unsubscribeHandlers.forEach((unsubscribe) => unsubscribe());
     };
-  }, [activeMarketIdsKey, activeMarketIds, handleMarketUpdate, isAuthenticated]);
+  }, [activeMarketIdsKey, isAuthenticated]);
 
   useEffect(() => {
     if (!isAuthenticated) {

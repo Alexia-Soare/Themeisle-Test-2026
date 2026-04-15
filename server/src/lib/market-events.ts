@@ -1,5 +1,6 @@
 import type { EnrichedMarket } from "./market-data";
 import { getEnrichedMarket } from "./market-data";
+import { broadcastMarketUpdate as broadcastGlobalUpdate } from "./events";
 
 const encoder = new TextEncoder();
 const marketSubscribers = new Map<number, Set<ReadableStreamDefaultController<Uint8Array>>>();
@@ -116,6 +117,9 @@ export function createMarketStreamResponse({
 }
 
 export async function broadcastMarketUpdate(marketId: number) {
+  // Notify global SSE subscribers (used by /api/events)
+  broadcastGlobalUpdate(marketId);
+
   const subscribers = marketSubscribers.get(marketId);
   if (!subscribers || subscribers.size === 0) {
     return;
