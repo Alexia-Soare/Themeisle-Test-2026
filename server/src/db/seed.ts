@@ -289,8 +289,9 @@ async function insertBets(users: SeededUser[], markets: CreatedMarket[]) {
   console.log("\nCreating bets...");
 
   const betValues: BetInsert[] = [];
+  const shuffledMarkets = faker.helpers.shuffle([...markets]);
 
-  for (const market of markets) {
+  for (const market of shuffledMarkets) {
     const participantCount = faker.number.int({ min: 8, max: 40 });
     const participants = faker.helpers.arrayElements(
       users.filter((user) => user.remainingBalance >= 5),

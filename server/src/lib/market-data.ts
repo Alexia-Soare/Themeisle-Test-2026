@@ -97,6 +97,7 @@ export async function listEnrichedMarkets(
 ): Promise<Array<EnrichedMarket>> {
   const markets = await db.query.marketsTable.findMany({
     where: eq(marketsTable.status, status),
+    orderBy: (markets, { desc }) => desc(markets.id),
     with: {
       creator: {
         columns: { username: true },

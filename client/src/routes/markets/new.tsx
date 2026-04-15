@@ -14,7 +14,6 @@ function CreateMarketPage() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm({
     defaultValues: {
@@ -37,17 +36,16 @@ function CreateMarketPage() {
       }
 
       try {
-        setIsLoading(true);
         setError(null);
         const market = await api.createMarket(values.title, values.description, validOutcomes);
-        navigate({ to: `/markets/${market.id}` });
+        navigate({ to: `/markets/${market.id}`, replace: true });
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to create market");
-      } finally {
-        setIsLoading(false);
       }
     },
   });
+
+  const isLoading = form.state.isSubmitting;
 
   useEffect(() => {
     if (!isAuthenticated) {
