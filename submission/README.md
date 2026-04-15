@@ -14,7 +14,7 @@ Honestly, one of the bigger struggles was working with the database — setting 
 
 TypeScript was also a challenge since I'm not very experienced with it yet. There were quite a few moments where I was fighting with types and interfaces, especially when dealing with API responses and passing props between components. It slowed me down at first but I got more comfortable as the project went on.
 
-Overall it was a really good learning experience and I'm happy with how it turned out!
+Overall it was a really good learning experience!
 
 ## Demo Video
 [Click here to watch the demo]
