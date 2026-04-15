@@ -5,6 +5,8 @@ import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
+import { ArrowLeft } from "lucide-react";
+
 const PAGE_SIZE = 20;
 
 function LeaderboardPage() {
@@ -38,7 +40,8 @@ function LeaderboardPage() {
   return (
     <div className="min-h-screen bg-background py-8">
       <div className="mx-auto w-full max-w-4xl space-y-6 px-4 animate-fade-in-up">
-        <Button variant="outline" onClick={() => navigate({ to: "/" })}>
+        <Button variant="outline" className="gap-1.5" onClick={() => navigate({ to: "/" })}>
+          <ArrowLeft className="h-4 w-4" />
           Back to Markets
         </Button>
 

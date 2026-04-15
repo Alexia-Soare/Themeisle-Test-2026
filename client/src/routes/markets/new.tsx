@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -59,8 +60,13 @@ function CreateMarketPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4">
-      <div className="max-w-2xl mx-auto animate-fade-in-up">
+    <div className="min-h-screen bg-background py-8">
+      <div className="max-w-2xl mx-auto px-4 space-y-6 animate-fade-in-up">
+        <Button variant="outline" className="gap-1.5" onClick={() => navigate({ to: "/" })}>
+          <ArrowLeft className="h-4 w-4" />
+          Back to Markets
+        </Button>
+
         <Card>
           <CardHeader className="space-y-2">
             <CardTitle className="text-3xl">Create a Market</CardTitle>

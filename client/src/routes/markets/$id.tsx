@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ArrowLeft } from "lucide-react";
 import { Label } from "@/components/ui/label";
 
 const DISTRIBUTION_COLORS = [
@@ -194,7 +195,10 @@ function MarketDetailPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 gap-4">
             <p className="text-destructive">Market not found</p>
-            <Button onClick={() => navigate({ to: "/" })}>Back to Markets</Button>
+            <Button variant="outline" className="gap-1.5" onClick={() => navigate({ to: "/" })}>
+              <ArrowLeft className="h-4 w-4" />
+              Back to Markets
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -205,8 +209,9 @@ function MarketDetailPage() {
     <div className="min-h-screen bg-background py-8">
       <div className="max-w-3xl mx-auto px-4 space-y-6 animate-fade-in-up">
         {/* Header */}
-        <Button variant="outline" onClick={() => router.history.back()}>
-          ← Back
+        <Button variant="outline" className="gap-1.5" onClick={() => router.history.back()}>
+          <ArrowLeft className="h-4 w-4" />
+          Back
         </Button>
 
         <Card>

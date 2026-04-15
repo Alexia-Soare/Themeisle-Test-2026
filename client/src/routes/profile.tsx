@@ -242,8 +242,8 @@ function ProfilePage() {
       <div className="max-w-4xl mx-auto px-4 space-y-6 animate-fade-in-up">
         {/* Back button */}
         <Button
-          variant="ghost"
-          className="gap-1.5 text-muted-foreground hover:text-foreground"
+          variant="outline"
+          className="gap-1.5"
           onClick={() => navigate({ to: "/" })}
         >
           <ArrowLeft className="h-4 w-4" />
